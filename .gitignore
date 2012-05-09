@@ -1,0 +1,9 @@
+bin/
+*.class
+*.bak
+*.temp
+*.tmp
+*~
+settings/
+metadata/
+.classpath
