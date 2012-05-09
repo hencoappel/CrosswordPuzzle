@@ -153,11 +153,13 @@ class PuzzleGUI extends JFrame {
 	}
 
 	class CrosswordGrid extends JPanel {
+		private static final int NONE = 0, ACROSS = 1, DOWN = 2;
 		BufferedImage buffImg;
 		private Cell[][] puzzle;
 		double cellWidth;
 		int xOffset, yOffset;
-		int clueHighlight;
+		int clueHighlight, highlightDirection;
+		Point cellHighlight;
 
 		public CrosswordGrid(Cell[][] puzzle) {
 			this.puzzle = puzzle;
@@ -195,6 +197,8 @@ class PuzzleGUI extends JFrame {
 				}
 			});
 			clueHighlight = 0;
+			cellHighlight = new Point(-1, -1);
+			highlightDirection = NONE;
 		}
 
 		public void paint(Graphics gr) {
@@ -252,7 +256,7 @@ class PuzzleGUI extends JFrame {
 				if ((cell.acrossClue != null && cell.acrossClue.number == clueHighlight)
 						|| (cell.downClue != null && cell.downClue.number == clueHighlight))
 					g.setColor(Color.GREEN);
-				if (cell.highlight)
+				if (cellHighlight.equals(new Point(x, y)))
 					g.setColor(Color.RED);
 				else if ((cell.acrossClue != null && cell.acrossClue.number == clueHighlight)
 						|| (cell.downClue != null && cell.downClue.number == clueHighlight))
@@ -276,12 +280,32 @@ class PuzzleGUI extends JFrame {
 		private void setCell(int x, int y) {
 			x = (int) ((x - xOffset) / cellWidth);
 			y = (int) ((y - yOffset) / cellWidth);
-			Cell cell = puzzle[x][y];
-			if (cell != null) {
-				cell.highlight = true;
-				clueHighlight = cell.acrossClue.number;
+
+			if (puzzle[x][y] != null) {
+				Cell cell = puzzle[x][y];
+				if (highlightDirection == NONE) {
+					if (cell.acrossClue != null) {
+						clueHighlight = cell.acrossClue.number;
+						highlightDirection = ACROSS;
+					} else if (cell.downClue != null) {
+						clueHighlight = cell.downClue.number;
+						highlightDirection = DOWN;
+					}
+				} else if (highlightDirection == ACROSS) {
+					if (cell.downClue != null) {
+						clueHighlight = cell.downClue.number;
+						highlightDirection = DOWN;
+					} else {
+						clueHighlight = 0;
+						highlightDirection = NONE;
+					}
+				} else {
+					highlightDirection = NONE;
+				}
+				cellHighlight = new Point(x, y);
 				repaint();
 			}
+
 		}
 	}
 
@@ -289,7 +313,6 @@ class PuzzleGUI extends JFrame {
 		private String c;
 		private String clueNum; // only if first character
 		private Clue acrossClue, downClue;
-		private boolean highlight;
 
 		public Cell(char c, Clue acrossClue, Clue downClue) {
 			this(c, false, acrossClue, downClue);
@@ -307,7 +330,6 @@ class PuzzleGUI extends JFrame {
 			}
 			this.acrossClue = acrossClue;
 			this.downClue = downClue;
-			highlight = false;
 		}
 
 		private boolean isStart() {
