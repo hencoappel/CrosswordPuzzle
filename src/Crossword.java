@@ -1,14 +1,4 @@
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.GridLayout;
-import java.awt.Point;
-import java.awt.RenderingHints;
-import java.awt.Toolkit;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
@@ -16,29 +6,12 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.swing.AbstractAction;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JCheckBoxMenuItem;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.KeyStroke;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -226,6 +199,28 @@ class PuzzleGUI extends JFrame {
 		// @formatter:on
 	}
 
+	@SuppressWarnings("rawtypes")
+	class ClueRenderer extends DefaultListCellRenderer {
+		public ClueRenderer() {
+			setOpaque(true);
+		}
+
+		public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected,
+				boolean cellHasFocus) {
+
+			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+
+			// if (solvedSupport && ((Clue) value).solved) {
+			// setBackground(new Color(151, 206, 139));
+			// } else {
+			// setBackground(list.getBackground());
+			// }
+
+			return this;
+		}
+
+	}
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void loadCrossword(Crossword c) {
 		currentCrossword = c;
@@ -233,6 +228,7 @@ class PuzzleGUI extends JFrame {
 
 		acrossJList = new JList(currentCrossword.acrossClues.toArray());
 		acrossJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		acrossJList.setCellRenderer(new ClueRenderer());
 		acrossJList.addListSelectionListener(new ListSelectionListener() {
 
 			@Override
@@ -247,6 +243,7 @@ class PuzzleGUI extends JFrame {
 
 		downJList = new JList(currentCrossword.downClues.toArray());
 		downJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		downJList.setCellRenderer(new ClueRenderer());
 		downJList.addListSelectionListener(new ListSelectionListener() {
 
 			@Override
@@ -530,10 +527,51 @@ class PuzzleGUI extends JFrame {
 
 		private void setCell(char c) {
 			puzzle[cellToHighlight.x][cellToHighlight.y].c = Character.toString(c);
+			checkSolved(puzzle[cellToHighlight.x][cellToHighlight.y]);
 			if (highlightDirection == ACROSS)
 				move(RIGHT);
 			else
 				move(DOWN);
+		}
+
+		private void checkSolved(Cell cell) {
+			if (cell.hasAcross()) {
+				boolean solved = true;
+				int y = cell.acrossClue.y;
+				for (int x = cell.acrossClue.x; x < cell.acrossClue.x + cell.acrossClue.length(); x++) {
+					solved = solved && puzzle[x][y].c.equals(puzzle[x][y].answer);
+					System.out.println("Across: (" + x + "," + y + ") c=" + puzzle[x][y].c + " answer="
+							+ puzzle[x][y].answer + " solved=" + solved);
+					if (!solved)
+						break;
+				}
+				if (solved && !cell.acrossClue.isSolved()) {
+					cell.acrossClue.setSolved(name);
+					Date now = new Date();
+					SimpleDateFormat formatter = new SimpleDateFormat("HH:mm");
+					logArea.append(cell.acrossClue.number + " across solved at " + formatter.format(now) + " by "
+							+ name + "\n");
+				}
+			}
+			if (cell.hasDown()) {
+				boolean solved = true;
+				int x = cell.downClue.x;
+				System.out.println("Down start.y " + cell.downClue.y + " length: " + cell.downClue.length());
+				for (int y = cell.downClue.y; y < cell.downClue.y + cell.downClue.length(); y++) {
+					solved = solved && puzzle[x][y].c.equals(puzzle[x][y].answer);
+					System.out.println("Down: (" + x + "," + y + ") c=" + puzzle[x][y].c + " answer="
+							+ puzzle[x][y].answer + " solved=" + solved);
+					if (!solved)
+						break;
+				}
+				if (solved && !cell.downClue.isSolved()) {
+					cell.downClue.setSolved(name);
+					Date now = new Date();
+					SimpleDateFormat formatter = new SimpleDateFormat("HH:mm");
+					logArea.append(cell.downClue.number + " down solved at " + formatter.format(now) + " by " + name
+							+ "\n");
+				}
+			}
 		}
 
 		private void move(int direction) {
@@ -565,7 +603,7 @@ class PuzzleGUI extends JFrame {
 		private Clue acrossClue, downClue;
 
 		public Cell(char c, Clue acrossClue, Clue downClue) {
-			this.c = "";
+			this.c = " ";
 			this.answer = Character.toString(c);
 			this.acrossClue = acrossClue;
 			this.downClue = downClue;
@@ -600,7 +638,7 @@ class Crossword {
 }
 
 class Clue {
-	final int number, x, y;
+	final int number, x, y, length;
 	final String clue, answer;
 	boolean solved;
 	String solvedBy;
@@ -613,6 +651,7 @@ class Clue {
 		this.y = y;
 		this.clue = clue;
 		this.answer = answer;
+		length = answer.replaceAll("(-| )", "").length();
 		createClueDisplay();
 	}
 
@@ -634,14 +673,18 @@ class Clue {
 		clueDisplay += ")";
 	}
 
-	private void setSolved(String name) {
+	void setSolved(String name) {
 		solved = true;
 		solvedBy = name;
 		solvedAt = new Date(System.currentTimeMillis());
 	}
 
-	private boolean isSolved() {
+	boolean isSolved() {
 		return solved;
+	}
+
+	int length() {
+		return length;
 	}
 
 	@Override
