@@ -8,23 +8,39 @@ import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
+import javax.swing.AbstractAction;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 @SuppressWarnings("serial")
 class PuzzleGUI extends JFrame {
@@ -48,6 +64,10 @@ class PuzzleGUI extends JFrame {
 	private CrosswordGrid grid;
 	private JLabel crosswordTitle;
 	private JList acrossJList, downJList;
+	private JTextArea logArea;
+	private String name;
+	private JFrame window;
+	private boolean solvedSupport;
 	
 	public PuzzleGUI() {
 		super("Crossword Puzzle");
@@ -59,29 +79,116 @@ class PuzzleGUI extends JFrame {
 	 */
 	private void initGUI() {
 		initialiseCrosswords();
+		window = this;
 		
 		JPanel panel = new JPanel();
-		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+		
+		JPanel crosswordPanel = new JPanel();
+		crosswordPanel.setLayout(new BoxLayout(crosswordPanel, BoxLayout.X_AXIS));
 		JPanel gridPanel = new JPanel(new BorderLayout(10, 10));
-		// gridPanel.setLayout(new BoxLayout(gridPanel, BoxLayout.PAGE_AXIS));
 		crosswordTitle = new JLabel(currentCrossword.title, SwingConstants.CENTER);
 		gridPanel.add(crosswordTitle, BorderLayout.NORTH);
 		grid = new CrosswordGrid(puzzle);
 		gridPanel.add(grid, BorderLayout.CENTER);
-		panel.add(gridPanel);
+		crosswordPanel.add(gridPanel);
 		
 		JPanel cluePanel = new JPanel(new GridLayout(2, 1, 5, 5));
-		cluePanel.setPreferredSize(new Dimension(200, 200));
-		cluePanel.add(new JScrollPane(acrossJList));
-		cluePanel.add(new JScrollPane(downJList));
-		panel.add(cluePanel);
+		cluePanel.setPreferredSize(new Dimension(220, 200));
+		
+		JPanel acrossCluesPanel = new JPanel(new BorderLayout());
+		acrossCluesPanel.add(new JLabel("Across Clues", SwingConstants.CENTER), BorderLayout.NORTH);
+		acrossCluesPanel.add(new JScrollPane(acrossJList), BorderLayout.CENTER);
+		
+		JPanel downCluesPanel = new JPanel(new BorderLayout());
+		downCluesPanel.add(new JLabel("Down Clues", SwingConstants.CENTER), BorderLayout.NORTH);
+		downCluesPanel.add(new JScrollPane(downJList), BorderLayout.CENTER);
+		
+		cluePanel.add(acrossCluesPanel);
+		cluePanel.add(downCluesPanel);
+		crosswordPanel.add(cluePanel);
+		panel.add(crosswordPanel);
+		
+		logArea = new JTextArea();
+		logArea.setEditable(false);
+		JScrollPane textAreaPanel = new JScrollPane(logArea);
+		textAreaPanel.setMinimumSize(new Dimension(200, 100));
+		textAreaPanel.setPreferredSize(new Dimension(200, 100));
+		
+		panel.add(textAreaPanel);
 		
 		setContentPane(panel);
+		// setup menubar
+		JMenuBar menuBar = createMenuBar();
+		setJMenuBar(menuBar);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		// setPreferredSize(new Dimension(600, 600));
 		setMinimumSize(new Dimension(600, 446));
 		pack();
 		setVisible(true);
+		do {
+			setUser();
+			if (name == null)
+				JOptionPane.showMessageDialog(window, "Must enter a name", "Error",
+						JOptionPane.ERROR_MESSAGE);
+		} while (name == null);
+	}
+	
+	private JMenuBar createMenuBar() {
+		// setup menubar
+		JMenuBar menuBar = new JMenuBar();
+		
+		JMenu fileMenu = new JMenu("File");
+		JMenuItem closeWindow = new JMenuItem();
+		closeWindow.setAction(new AbstractAction("Close") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				WindowEvent wev = new WindowEvent(window, WindowEvent.WINDOW_CLOSING);
+				Toolkit.getDefaultToolkit().getSystemEventQueue().postEvent(wev);
+			}
+		});
+		closeWindow.setMnemonic(KeyEvent.VK_Q);
+		closeWindow.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, ActionEvent.CTRL_MASK));
+		fileMenu.add(closeWindow);
+		
+		final JMenu optionsMenu = new JMenu("Options");
+		optionsMenu.setMnemonic(KeyEvent.VK_O);
+		
+		JMenuItem setUser = new JMenuItem();
+		setUser.setAction(new AbstractAction("Set User") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				setUser();
+			}
+		});
+		setUser.setMnemonic(KeyEvent.VK_U);
+		setUser.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_U, ActionEvent.CTRL_MASK));
+		optionsMenu.add(setUser);
+		
+		JCheckBoxMenuItem toggleSolvedSupport = new JCheckBoxMenuItem();
+		toggleSolvedSupport.setAction(new AbstractAction("Solved Support") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				solvedSupport = !solvedSupport;
+			}
+		});
+		toggleSolvedSupport.setMnemonic(KeyEvent.VK_S);
+		toggleSolvedSupport.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S,
+				ActionEvent.CTRL_MASK));
+		optionsMenu.add(toggleSolvedSupport);
+		
+		menuBar.add(optionsMenu);
+		
+		return menuBar;
+	}
+	
+	private void setUser() {
+		String option = JOptionPane.showInputDialog(window, "Name: ");
+		// ignore cancel or empty string
+		if (option != null && !option.equals("")) {
+			name = option;
+			logArea.append("Current user: " + name + "\n");
+		}
 	}
 	
 	private void initialiseCrosswords() {
@@ -93,51 +200,55 @@ class PuzzleGUI extends JFrame {
 		acrossClues = new ArrayList<Clue>();
 		downClues = new ArrayList<Clue>();
 		
-		acrossClues.add(new Clue(1, 1, 0, "Eager Involvement", "enthusiasm"));		acrossClues.add(new Clue(8, 0, 2, "Stream of water", "river"));
-		acrossClues.add(new Clue(9, 6, 2, "Take as one's own", "adopt"));		acrossClues.add(new Clue(10, 0, 4, "Ball game", "golf"));
-		acrossClues.add(new Clue(12, 5, 4, "Guard", "sentry"));		acrossClues.add(new Clue(14, 0, 6, "Language communication", "speech"));
-		acrossClues.add(new Clue(17, 7, 6, "Fruit", "plum"));		acrossClues.add(new Clue(21, 0, 8, "In addition", "extra"));
+		acrossClues.add(new Clue(1, 1, 0, "Eager Involvement", "enthusiasm"));		acrossClues.add(new Clue(8, 0, 2, "Stream of water", "river"));		acrossClues.add(new Clue(9, 6, 2, "Take as one's own", "adopt"));		acrossClues.add(new Clue(10, 0, 4, "Ball game", "golf"));
+		acrossClues.add(new Clue(12, 5, 4, "Guard", "sentry"));		acrossClues.add(new Clue(14, 0, 6, "Language communication", "speech"));		acrossClues.add(new Clue(17, 7, 6, "Fruit", "plum"));		acrossClues.add(new Clue(21, 0, 8, "In addition", "extra"));
 		acrossClues.add(new Clue(22, 6, 8, "Boundary", "limit"));		acrossClues.add(new Clue(23, 0, 10, "Executives", "management"));
 		
-		downClues.add(new Clue(2, 2, 0, "Pertaining to warships", "naval"));		downClues.add(new Clue(3, 4, 0, "Solid", "hard"));
-		downClues.add(new Clue(4, 6, 0, "Apportion", "share"));		downClues.add(new Clue(5, 8, 0, "Concerning", "about"));
-		downClues.add(new Clue(6, 10, 0, "Friendly", "matey"));		downClues.add(new Clue(7, 0, 1, "Boast", "brag"));
-		downClues.add(new Clue(11, 3, 4, "Enemy", "foe"));		downClues.add(new Clue(13, 7, 4, "Doze", "nap"));
-		downClues.add(new Clue(14, 0, 6, "Water vapour", "steam"));		downClues.add(new Clue(15, 2, 6, "Consumed", "eaten"));
-		downClues.add(new Clue(16, 4, 6, "Loud, resonant sound", "clang"));		downClues.add(new Clue(18, 8, 6, "Yellowish, citrus fruit", "lemon"));
+		downClues.add(new Clue(2, 2, 0, "Pertaining to warships", "naval"));		downClues.add(new Clue(3, 4, 0, "Solid", "hard"));		downClues.add(new Clue(4, 6, 0, "Apportion", "share"));		downClues.add(new Clue(5, 8, 0, "Concerning", "about"));
+		downClues.add(new Clue(6, 10, 0, "Friendly", "matey"));		downClues.add(new Clue(7, 0, 1, "Boast", "brag"));		downClues.add(new Clue(11, 3, 4, "Enemy", "foe"));		downClues.add(new Clue(13, 7, 4, "Doze", "nap"));
+		downClues.add(new Clue(14, 0, 6, "Water vapour", "steam"));		downClues.add(new Clue(15, 2, 6, "Consumed", "eaten"));		downClues.add(new Clue(16, 4, 6, "Loud, resonant sound", "clang"));		downClues.add(new Clue(18, 8, 6, "Yellowish, citrus fruit", "lemon"));
 		downClues.add(new Clue(19, 10, 6, "Mongrel dog", "mutt"));		downClues.add(new Clue(20, 6, 7, "Shut with force", "slam"));
 		
 		crosswords.add(new Crossword("An Example Crossword", 11, acrossClues, downClues));
+		
 		acrossClues = new ArrayList<Clue>();
 		downClues = new ArrayList<Clue>();
 		
-		acrossClues.add(new Clue(1, 1, 0, "Showy", "OSTENTATIOUS"));		acrossClues.add(new Clue(9, 0, 2, "Carrying weapons", "ARMED"));
-		acrossClues.add(new Clue(10, 6, 2, "Cocaine (anag)", "OCEANIC"));		acrossClues.add(new Clue(11, 0, 4, "Dull continuous pain", "ACHE"));
-		acrossClues.add(new Clue(12, 5, 4, "Under an obligation", "BEHOLDEN"));		acrossClues.add(new Clue(14, 0, 6, "Cheap and showy", "TAWDRY"));
-		acrossClues.add(new Clue(15, 7, 6, "Bewail", "LAMENT"));		acrossClues.add(new Clue(18, 0, 8, "Contrary", "OPPOSITE"));
-		acrossClues.add(new Clue(20, 9, 8, "Sign of things to come", "OMEN"));		acrossClues.add(new Clue(22, 0, 10, "Impetuous person", "HOTHEAD"));
-		acrossClues.add(new Clue(23, 8, 10, "Norwegian dramatist", "IBSEN"));		acrossClues.add(new Clue(24, 0, 12, "Rebuff", "COLD-SHOULDER"));
-		
-		downClues.add(new Clue(2, 2, 0, "One way or another", "SOMEHOW"));		downClues.add(new Clue(3, 4, 0, "Swirling current", "EDDY"));
-		downClues.add(new Clue(4, 6, 0, "Gardener's tool", "TROWEL"));		downClues.add(new Clue(5, 8, 0, "Sacred writings of Islam", "THE KORAN"));
-		downClues.add(new Clue(6, 10, 0, "Possessed", "OWNED"));		downClues.add(new Clue(7, 12, 0, "Best", "SECOND TO NONE"));
-		downClues.add(new Clue(8, 0, 1, "Disastrous", "CATASTROPHIC"));		downClues.add(new Clue(13, 0, 1, "European Commission HQ", "BRUSSELS"));
-		downClues.add(new Clue(16, 0, 1, "All together", "EN MASSE"));		downClues.add(new Clue(17, 0, 1, "Artist's workroom", "STUDIO"));
-		downClues.add(new Clue(19, 0, 1, "Part of a flower ", "PETAL"));		downClues.add(new Clue(21, 0, 1, "English philosopher and economist, d. 1873", "MILL"));
+		acrossClues.add(new Clue(1, 1, 0, "Showy", "OSTENTATIOUS"));		acrossClues.add(new Clue(9, 0, 2, "Carrying weapons", "ARMED"));		acrossClues.add(new Clue(10, 6, 2, "Cocaine (anag)", "OCEANIC"));		acrossClues.add(new Clue(11, 0, 4, "Dull continuous pain", "ACHE"));
+		acrossClues.add(new Clue(12, 5, 4, "Under an obligation", "BEHOLDEN"));		acrossClues.add(new Clue(14, 0, 6, "Cheap and showy", "TAWDRY"));		acrossClues.add(new Clue(15, 7, 6, "Bewail", "LAMENT"));		acrossClues.add(new Clue(18, 0, 8, "Contrary", "OPPOSITE"));
+		acrossClues.add(new Clue(20, 9, 8, "Sign of things to come", "OMEN"));		acrossClues.add(new Clue(22, 0, 10, "Impetuous person", "HOTHEAD"));		acrossClues.add(new Clue(23, 8, 10, "Norwegian dramatist", "IBSEN"));		acrossClues.add(new Clue(24, 0, 12, "Rebuff", "COLD-SHOULDER"));
+	
+		downClues.add(new Clue(2, 2, 0, "One way or another", "SOMEHOW"));		downClues.add(new Clue(3, 4, 0, "Swirling current", "EDDY"));		downClues.add(new Clue(4, 6, 0, "Gardener's tool", "TROWEL"));		downClues.add(new Clue(5, 8, 0, "Sacred writings of Islam", "THE KORAN"));
+		downClues.add(new Clue(6, 10, 0, "Possessed", "OWNED"));		downClues.add(new Clue(7, 12, 0, "Best", "SECOND TO NONE"));		downClues.add(new Clue(8, 0, 1, "Disastrous", "CATASTROPHIC"));		downClues.add(new Clue(13, 4, 5, "European Commission HQ", "BRUSSELS"));
+		downClues.add(new Clue(16, 10, 6, "All together", "EN MASSE"));		downClues.add(new Clue(17, 6, 7, "Artist's workroom", "STUDIO"));		downClues.add(new Clue(19, 2, 8, "Part of a flower ", "PETAL"));		downClues.add(new Clue(21, 8, 9, "English philosopher and economist, d. 1873", "MILL"));
 		
 		crosswords.add(new Crossword("Guardian 13,019", 13, acrossClues, downClues));
 		
-		loadCrossword(crosswords.get(0));
+		loadCrossword(crosswords.get(1));
 		// @formatter:on
 	}
 	
 	private void loadCrossword(Crossword c) {
 		currentCrossword = c;
 		puzzle = new Cell[currentCrossword.size][currentCrossword.size];
+		
 		acrossJList = new JList(currentCrossword.acrossClues.toArray());
 		acrossJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		acrossJList.addListSelectionListener(new ListSelectionListener() {
+			
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				// TODO
+				Clue clue = currentCrossword.acrossClues.get(e.getLastIndex());
+				System.out.println(e.getFirstIndex() + " " + clue);
+				
+				grid.onlyHighlightClue(clue.number, CrosswordGrid.ACROSS);
+			}
+		});
+		
 		downJList = new JList(currentCrossword.downClues.toArray());
 		downJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		
 		for (Clue clue : currentCrossword.acrossClues)
 			loadClue(clue, true);
 		for (Clue clue : currentCrossword.downClues)
@@ -315,10 +426,12 @@ class PuzzleGUI extends JFrame {
 		}
 		
 		private void highlightCell(int x, int y) {
+			requestFocus();
 			System.out.println("(" + x + "," + y + "), " + puzzle.length);
 			if (!(x >= 0 && x < puzzle.length && y >= 0 && y < puzzle.length)) {
+				System.out.println("error");
 				this.cellToHighlight = new Point(-1, -1);
-				highlightClue(null, NONE);
+				highlightClue(0, NONE);
 				return;
 			}
 			Cell cell = puzzle[x][y];
@@ -327,44 +440,47 @@ class PuzzleGUI extends JFrame {
 				if (this.cellToHighlight.equals(cellHighlight)) { // clicked same cell again
 					if (highlightDirection == ACROSS) {
 						if (cell.downClue != null) {
-							highlightClue(cell, DOWN);
+							highlightClue(cell.downClue.number, DOWN);
 						} else {
-							highlightClue(cell, NONE);
+							highlightClue(0, NONE);
 							this.cellToHighlight = new Point(-1, -1);
 						}
 					} else if (highlightDirection == DOWN) {
 						this.cellToHighlight = new Point(-1, -1);
-						highlightClue(cell, NONE);
+						highlightClue(0, NONE);
 					}
 				} else { // clicked different cell
 					this.cellToHighlight = cellHighlight;
 					if (cell.acrossClue != null) {
-						highlightClue(cell, ACROSS);
+						// if moving down already highlighted clue, continue to highlight down clue
+						// and not across
+						if (cell.downClue != null && cell.downClue.number == clueToHighlight)
+							highlightClue(cell.downClue.number, DOWN);
+						else
+							highlightClue(cell.acrossClue.number, ACROSS);
 					} else if (cell.downClue != null) {
-						highlightClue(cell, DOWN);
+						highlightClue(cell.downClue.number, DOWN);
 					} else {
 						this.cellToHighlight = new Point(-1, -1);
-						highlightClue(cell, NONE);
+						highlightClue(0, NONE);
 					}
 				}
 			} else {
 				this.cellToHighlight = new Point(-1, -1);
-				highlightClue(cell, NONE);
+				highlightClue(0, NONE);
 			}
 			repaint();
 		}
 		
-		private void highlightClue(Cell cell, int direction) {
-			if (direction == NONE) {
-				highlightDirection = NONE;
-				clueToHighlight = 0;
-			} else if (direction == ACROSS) {
-				highlightDirection = ACROSS;
-				clueToHighlight = cell.acrossClue.number;
-			} else {
-				highlightDirection = DOWN;
-				clueToHighlight = cell.downClue.number;
-			}
+		private void highlightClue(int clueNum, int direction) {
+			highlightDirection = direction;
+			clueToHighlight = clueNum;
+		}
+		
+		private void onlyHighlightClue(int clueNum, int direction) {
+			highlightClue(clueNum, direction);
+			cellToHighlight = new Point(-1, -1);
+			repaint();
 		}
 		
 		private void setCell(char c) {
@@ -433,6 +549,10 @@ class Crossword {
 class Clue {
 	final int number, x, y;
 	final String clue, answer;
+	boolean solved;
+	String solvedBy;
+	Date solvedAt;
+	String clueDisplay;
 	
 	Clue(int number, int x, int y, String clue, String answer) {
 		this.number = number;
@@ -440,15 +560,40 @@ class Clue {
 		this.y = y;
 		this.clue = clue;
 		this.answer = answer;
+		createClueDisplay();
 	}
 	
-	public int length() {
-		return answer.length();
+	private void createClueDisplay() {
+		String[] words = answer.split("(-| )");
+		clueDisplay = number + ". " + clue + " (";
+		int i;
+		for (i = 0; i < words.length - 1; i++) {
+			clueDisplay += words[i].length();
+			if (answer.charAt(words[i].length()) == '-') {
+				System.out.println(number + "-");
+				clueDisplay += "-";
+			} else if (answer.charAt(words[i].length()) == ' ') {
+				System.out.println(number + "' '");
+				clueDisplay += ",";
+			}
+		}
+		clueDisplay += words[i].length();
+		clueDisplay += ")";
+	}
+	
+	private void setSolved(String name) {
+		solved = true;
+		solvedBy = name;
+		solvedAt = new Date(System.currentTimeMillis());
+	}
+	
+	private boolean isSolved() {
+		return solved;
 	}
 	
 	@Override
 	public String toString() {
-		return clue;
+		return clueDisplay;
 	}
 	
 }
