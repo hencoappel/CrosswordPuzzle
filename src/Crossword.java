@@ -96,7 +96,7 @@ class PuzzleGUI extends JFrame {
 		setJMenuBar(menuBar);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		// setPreferredSize(new Dimension(600, 600));
-		setMinimumSize(new Dimension(600, 446));
+		setMinimumSize(new Dimension(600, 550));
 		pack();
 		setVisible(true);
 		do {
@@ -549,8 +549,9 @@ class PuzzleGUI extends JFrame {
 					cell.acrossClue.setSolved(name);
 					Date now = new Date();
 					SimpleDateFormat formatter = new SimpleDateFormat("HH:mm");
-					logArea.append(cell.acrossClue.number + " across solved at " + formatter.format(now) + " by "
-							+ name + "\n");
+					if (solvedSupport)
+						logArea.append(cell.acrossClue.number + " across solved at " + formatter.format(now) + " by "
+								+ name + "\n");
 				}
 			}
 			if (cell.hasDown()) {
@@ -568,8 +569,9 @@ class PuzzleGUI extends JFrame {
 					cell.downClue.setSolved(name);
 					Date now = new Date();
 					SimpleDateFormat formatter = new SimpleDateFormat("HH:mm");
-					logArea.append(cell.downClue.number + " down solved at " + formatter.format(now) + " by " + name
-							+ "\n");
+					if (solvedSupport)
+						logArea.append(cell.downClue.number + " down solved at " + formatter.format(now) + " by "
+								+ name + "\n");
 				}
 			}
 		}
@@ -656,15 +658,18 @@ class Clue {
 	}
 
 	private void createClueDisplay() {
+		String temp = answer;
 		String[] words = answer.split("(-| )");
 		clueDisplay = number + ". " + clue + " (";
 		int i;
 		for (i = 0; i < words.length - 1; i++) {
 			clueDisplay += words[i].length();
-			if (answer.charAt(words[i].length()) == '-') {
+			temp = temp.replaceFirst(words[i], "");
+			System.out.println();
+			if (temp.charAt(0) == '-') {
 				System.out.println(number + "-");
 				clueDisplay += "-";
-			} else if (answer.charAt(words[i].length()) == ' ') {
+			} else if (temp.charAt(0) == ' ') {
 				System.out.println(number + "' '");
 				clueDisplay += ",";
 			}
