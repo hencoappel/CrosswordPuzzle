@@ -2,6 +2,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.net.URL;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -138,13 +139,13 @@ class PuzzleGUI extends JFrame {
 		pack();
 		setVisible(true);
 		// TODO fix - only temp mod to fix annoyance
-		name = "ted";
-		// do {
-		// setUser();
-		// if (name == null)
-		// JOptionPane.showMessageDialog(window, "Must enter a name", "Error",
-		// JOptionPane.ERROR_MESSAGE);
-		// } while (name == null);
+//		name = "ted";
+		 do {
+		 setUser();
+		 if (name == null)
+				JOptionPane.showMessageDialog(window, "Must enter a name", "Error",
+						JOptionPane.ERROR_MESSAGE);
+		 } while (name == null);
 	}
 	
 	private JMenuBar createMenuBar() {
@@ -191,6 +192,25 @@ class PuzzleGUI extends JFrame {
 		fileMenu.add(saveProgress);
 		
 		fileMenu.addSeparator();
+		
+		JMenuItem resetCrossword = new JMenuItem();
+		resetCrossword.setAction(new AbstractAction("Reset Crossword") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (currentCrossword != null) {
+					currentCrossword.resetCrossword();
+					
+					for (Cell[] cellarr : puzzle)
+						for (Cell cell : cellarr)
+							if (cell != null)
+								cell.c = "";
+					repaint();
+				}
+			}
+		});
+		resetCrossword.setMnemonic(KeyEvent.VK_R);
+		resetCrossword.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, ActionEvent.CTRL_MASK));
+		fileMenu.add(resetCrossword);
 		
 		JMenuItem loadCrossword = new JMenuItem();
 		loadCrossword.setAction(new AbstractAction("Load Crossword") {
@@ -262,7 +282,7 @@ class PuzzleGUI extends JFrame {
 		
 		menuBar.add(fileMenu);
 		
-		final JMenu optionsMenu = new JMenu("Options");
+		JMenu optionsMenu = new JMenu("Options");
 		
 		JMenuItem setUser = new JMenuItem();
 		setUser.setAction(new AbstractAction("Set User") {
@@ -287,6 +307,74 @@ class PuzzleGUI extends JFrame {
 		toggleSolvedSupport.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H,
 				ActionEvent.CTRL_MASK));
 		optionsMenu.add(toggleSolvedSupport);
+		
+		JMenuItem anagram = new JMenuItem();
+		final SpinnerModel numWordsModel = new SpinnerNumberModel(1, // initial value
+				1, // min
+				6, // max
+				1); // step
+		final JSpinner numWordsSpinner = new JSpinner(numWordsModel);
+		anagram.setAction(new AbstractAction("Anagrams") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// easy anagram using a web page
+				String word = JOptionPane.showInputDialog(window, "Word or phrase:");
+				if (word == null || word.equals(""))
+					return;
+				word = word.replaceAll("[^a-zA-Z ]", "");
+				if (word.equals(""))
+					return;
+				word = word.replaceAll(" ", "+");
+				int option = JOptionPane.showOptionDialog(window, numWordsSpinner, "Number Words",
+						JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null,
+						null);
+				int numWords;
+				if (option == JOptionPane.OK_OPTION) {
+					numWords = ((Integer) numWordsModel.getValue());
+				} else {
+					return;
+				}
+				numWordsSpinner.setValue(1);
+				try {
+					String address = "http://www.ssynth.co.uk/~gay/cgi-bin/nph-an?line=" + word
+							+ "&words=" + numWords + "&dict=antworth&doai=on";
+					URL webpage = new URL(address);
+					
+					BufferedReader readPage = new BufferedReader(new InputStreamReader(webpage
+							.openStream()));
+					String line = "";
+					while (!(line = readPage.readLine()).contains("<pre>"))
+						;
+					ArrayList<String> anagrams = new ArrayList<String>();
+					if (!line.contains("</pre>")) {
+						line = line.replaceAll("<pre>", "");
+						anagrams.add(line);
+						boolean loop = true;
+						while ((line = readPage.readLine()) != null && loop) {
+							if (line.contains("</pre>"))
+								break;
+							anagrams.add(line);
+						}
+					}
+					JList list = new JList(anagrams.toArray());
+					JScrollPane pane = new JScrollPane(list);
+					pane.setPreferredSize(new Dimension(160, 200));
+					list.setLayoutOrientation(JList.VERTICAL);
+					list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+					JOptionPane.showMessageDialog(window, pane, "Anagrams",
+							JOptionPane.PLAIN_MESSAGE);
+					
+				} catch (IOException ex) {
+					ex.printStackTrace();
+					JOptionPane.showMessageDialog(window,
+							"A problem occured, possibly no internet", "Error",
+							JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		});
+		anagram.setMnemonic(KeyEvent.VK_A);
+		anagram.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_A, ActionEvent.CTRL_MASK));
+		optionsMenu.add(anagram);
 		
 		menuBar.add(optionsMenu);
 		
@@ -357,7 +445,8 @@ class PuzzleGUI extends JFrame {
 		downClues.add(new Clue(16, 10, 6, "All together", "EN MASSE"));		downClues.add(new Clue(17, 6, 7, "Artist's workroom", "STUDIO"));		downClues.add(new Clue(19, 2, 8, "Part of a flower ", "PETAL"));		downClues.add(new Clue(21, 8, 9, "English philosopher and economist, d. 1873", "MILL"));
 		
 		crosswords.add(new Crossword("Guardian 13,019", 13, acrossClues, downClues));
-		
+
+		currentCrossword = crosswords.get(1);
 		loadCrossword(crosswords.get(1));
 		// @formatter:on
 	}
@@ -385,6 +474,7 @@ class PuzzleGUI extends JFrame {
 	
 	@SuppressWarnings("unchecked")
 	private void loadCrossword(Crossword c) {
+		currentCrossword.resetCrossword();
 		currentCrossword = c;
 		crosswordTitle.setText(c.title);
 		puzzle = new Cell[currentCrossword.size][currentCrossword.size];
@@ -488,6 +578,9 @@ class PuzzleGUI extends JFrame {
 						case KeyEvent.VK_UP:
 							move(UP);
 							break;
+						case KeyEvent.VK_BACK_SPACE:
+							move(LEFT);
+							break;
 						case KeyEvent.VK_DOWN:
 							move(DOWN);
 							break;
@@ -550,7 +643,7 @@ class PuzzleGUI extends JFrame {
 				// increase font size till height is roughly 6 less than cell height
 				do {
 					++fontSize;
-					g.setFont(new Font("Arial", Font.BOLD, fontSize));
+					g.setFont(new Font("arial", Font.BOLD, fontSize));
 					fm = g.getFontMetrics();
 					System.out.println(fm.getHeight() + " " + fontSize + " " + cellWidth);
 				} while (fm.getHeight() < cellWidth - 6);
@@ -836,6 +929,17 @@ class Crossword {
 		this.size = size;
 		this.acrossClues = acrossClues;
 		this.downClues = downClues;
+	}
+	
+	public void resetCrossword() {
+		Iterator<Clue> acrossIterator = acrossClues.iterator();
+		Iterator<Clue> downIterator = downClues.iterator();
+		while (acrossIterator.hasNext() || downIterator.hasNext()) {
+			if (acrossIterator.hasNext())
+				acrossIterator.next().setUnsolved();
+			if (downIterator.hasNext())
+				downIterator.next().setUnsolved();
+		}
 	}
 	
 	@Override
