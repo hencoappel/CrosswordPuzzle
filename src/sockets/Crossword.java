@@ -1,8 +1,12 @@
+package sockets;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.net.Socket;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -48,6 +52,12 @@ class PuzzleGUI extends JFrame {
 	private String name;
 	private JFrame window;
 	private boolean solvedSupport;
+	
+	private Socket socket = null;
+	private PrintWriter out = null;
+	private BufferedReader in = null;
+	private boolean connected;
+	Thread input;
 	
 	public PuzzleGUI() {
 		super("Crossword Puzzle");
@@ -378,7 +388,76 @@ class PuzzleGUI extends JFrame {
 		
 		menuBar.add(optionsMenu);
 		
+		JMenu networkingMenu = new JMenu("Networking");
+		// TODO netwworking
+		final JMenuItem connect = new JMenuItem();
+		connect.setAction(new AbstractAction("Connect") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (connected) {
+					try {
+						socket.close();
+						out.close();
+						in.close();
+					} catch (IOException ex) {
+						System.err.println("Couldn't get I/O for " + "the connection to: taranis.");
+					}
+					connect.setText("Connect");
+					connected=false;
+				} else {
+					try {
+						socket = new Socket("linuxproj.ecs.soton.ac.uk", 1292);
+						out = new PrintWriter(socket.getOutputStream(), true);
+						in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+						connected = true;
+						input = new Thread(new InStream());
+						input.start();
+						connect.setText("Disconnect");
+					} catch (UnknownHostException ex) {
+						System.err.println("Don't know about host.");
+					} catch (IOException ex) {
+						System.err.println("Couldn't get I/O for " + "the connection to: taranis.");
+					}
+				}
+			}
+		});
+		networkingMenu.add(connect);
+		
+		menuBar.add(networkingMenu);
+		
 		return menuBar;
+	}
+	
+	class InStream implements Runnable {
+		public void run() {
+			String line = "";
+			System.out.println("waiting");
+			try {
+				while ((line = in.readLine()) != null) {
+					System.out.println(line);
+					String[] vals = line.split(":");
+					int x = Integer.parseInt(vals[0]);
+					int y = Integer.parseInt(vals[1]);
+					char c = vals[2].charAt(0);
+					String username = vals[3];
+					grid.setCell(x, y, c, username);
+				}
+				connected = false;
+			} catch (IOException e) {
+			}
+		}
+	}
+	
+	private void outStream(int x, int y, char c, String username) {
+		String line = "";
+		line += Integer.toString(x);
+		line += ":";
+		line += Integer.toString(y);
+		line += ":";
+		line += Character.toString(c);
+		line += ":";
+		line += username;
+		out.println(line);
 	}
 	
 	private boolean addCrossword(Crossword c) {
@@ -701,6 +780,7 @@ class PuzzleGUI extends JFrame {
 				this.cellToHighlight = new Point(-1, -1);
 				highlightClue(null, NONE);
 				repaint();
+				requestFocus();
 				return;
 			}
 			// TODO HORIBBLE CODE
@@ -773,6 +853,7 @@ class PuzzleGUI extends JFrame {
 				clueToHighlight = clue.number;
 			}
 			selectClueInList(clue, direction);
+			requestFocus();
 		}
 		
 		private void onlyHighlightClue(int x, int y, int clueNum, int direction) {
@@ -787,34 +868,52 @@ class PuzzleGUI extends JFrame {
 		}
 		
 		private void setCell(char c) {
+			if (connected) {
+				outStream(cellToHighlight.x, cellToHighlight.y, c, name);
+			}
 			setCell(c, true);
 		}
 		
 		private void setCell(char c, boolean forward) {
-			puzzle[cellToHighlight.x][cellToHighlight.y].c = Character.toString(c);
-			checkClueSolved(puzzle[cellToHighlight.x][cellToHighlight.y]);
-			if (forward) {
-				if (highlightDirection == ACROSS)
-					move(RIGHT);
-				else
-					move(DOWN);
-			} else {
-				if (highlightDirection == ACROSS)
-					move(LEFT);
-				else
-					move(UP);
-			}
+			setCell(cellToHighlight.x, cellToHighlight.y, c, name, forward);
 		}
 		
-		private void checkClueSolved(Cell cell) {
+		private void setCell(int x, int y, char c, String username) {
+			setCell(x, y, c, name, true);
+		}
+		
+		private void setCell(int x, int y, char c, String username, boolean forward) {
+			int dir = 0;
+			if (forward) {
+				if (highlightDirection == ACROSS)
+					dir = RIGHT;
+				else
+					dir = DOWN;
+			} else {
+				if (highlightDirection == ACROSS)
+					dir = LEFT;
+				else
+					dir = UP;
+			}
+			setCell(x, y, c, username, dir);
+		}
+		
+		private void setCell(int x, int y, char c, String username, int direction) {
+			System.out.println("PuzzleGUI.CrosswordGrid.setCell()" + x + " " + y);
+			puzzle[x][y].c = Character.toString(c);
+			checkClueSolved(puzzle[x][y], username);
+			move(direction);
+		}
+		
+		private void checkClueSolved(Cell cell, String username) {
 			if (cell.hasAcross())
-				checkClueSolved(cell.acrossClue, ACROSS);
+				checkClueSolved(cell.acrossClue, ACROSS, username);
 			if (cell.hasDown())
-				checkClueSolved(cell.downClue, DOWN);
+				checkClueSolved(cell.downClue, DOWN, username);
 			
 		}
 		
-		private void checkClueSolved(Clue clue, int direct) {
+		private void checkClueSolved(Clue clue, int direct, String username) {
 			boolean solved = true;
 			String direction;
 			if (direct == ACROSS)
@@ -837,16 +936,16 @@ class PuzzleGUI extends JFrame {
 				}
 			}
 			if (solved && !clue.isSolved()) {
-				clue.setSolved(name);
+				clue.setSolved(username);
 				if (solvedSupport)
 					logArea.append(getTime() + " : " + clue.number + " " + direction
-							+ " solved by " + name + "\n");
+							+ " solved by " + username + "\n");
 			} else if (!solved && clue.isSolved()) {
 				clue.setUnsolved();
 			}
 			if (solved && checkPuzzleSolved()) {
 				logArea.append(getTime() + " : Crossword \"" + currentCrossword + "\" solved by "
-						+ name + "\n");
+						+ username + "\n");
 			}
 		}
 		
@@ -1131,7 +1230,7 @@ class CrosswordIO {
 			e.printStackTrace();
 		}
 		XMLStreamWriter writer = null;
-		;
+		
 		try {
 			writer = XMLOutputFactory.newInstance().createXMLStreamWriter(
 					new OutputStreamWriter(outputStream, "utf-8"));
