@@ -1,19 +1,21 @@
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
+import java.io.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
+import java.util.*;
 import java.util.List;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
+import javax.swing.event.*;
+import javax.swing.filechooser.FileFilter;
+import javax.xml.parsers.*;
+import javax.xml.stream.*;
+import javax.xml.stream.FactoryConfigurationError;
+
+import org.xml.sax.*;
+import org.xml.sax.helpers.DefaultHandler;
 
 @SuppressWarnings("serial")
 class PuzzleGUI extends JFrame {
@@ -36,6 +38,7 @@ class PuzzleGUI extends JFrame {
 	private Cell[][] puzzle;
 	private CrosswordGrid grid;
 	private JLabel crosswordTitle;
+	@SuppressWarnings("rawtypes")
 	private JList acrossJList, downJList;
 	private JTextArea logArea;
 	private String name;
@@ -99,11 +102,13 @@ class PuzzleGUI extends JFrame {
 		setMinimumSize(new Dimension(600, 550));
 		pack();
 		setVisible(true);
-		do {
-			setUser();
-			if (name == null)
-				JOptionPane.showMessageDialog(window, "Must enter a name", "Error", JOptionPane.ERROR_MESSAGE);
-		} while (name == null);
+		// TODO fix - only temp mod to fix annoyance
+		name = "ted";
+		// do {
+		// setUser();
+		// if (name == null)
+		// JOptionPane.showMessageDialog(window, "Must enter a name", "Error", JOptionPane.ERROR_MESSAGE);
+		// } while (name == null);
 	}
 
 	private JMenuBar createMenuBar() {
@@ -111,6 +116,20 @@ class PuzzleGUI extends JFrame {
 		JMenuBar menuBar = new JMenuBar();
 
 		JMenu fileMenu = new JMenu("File");
+		fileMenu.setMnemonic(KeyEvent.VK_F);
+
+		JMenuItem importCrossword = new JMenuItem();
+		importCrossword.setAction(new AbstractAction("Import Crossword") {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+
+				CrosswordIO.readPuzzle();
+			}
+		});
+		importCrossword.setMnemonic(KeyEvent.VK_Q);
+		importCrossword.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, ActionEvent.CTRL_MASK));
+		fileMenu.add(importCrossword);
+
 		JMenuItem closeWindow = new JMenuItem();
 		closeWindow.setAction(new AbstractAction("Close") {
 			@Override
@@ -122,6 +141,8 @@ class PuzzleGUI extends JFrame {
 		closeWindow.setMnemonic(KeyEvent.VK_Q);
 		closeWindow.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, ActionEvent.CTRL_MASK));
 		fileMenu.add(closeWindow);
+
+		menuBar.add(fileMenu);
 
 		final JMenu optionsMenu = new JMenu("Options");
 		optionsMenu.setMnemonic(KeyEvent.VK_O);
@@ -142,6 +163,7 @@ class PuzzleGUI extends JFrame {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				solvedSupport = !solvedSupport;
+				window.repaint();
 			}
 		});
 		toggleSolvedSupport.setMnemonic(KeyEvent.VK_S);
@@ -199,22 +221,22 @@ class PuzzleGUI extends JFrame {
 		// @formatter:on
 	}
 
+	// TODO
 	@SuppressWarnings("rawtypes")
 	class ClueRenderer extends DefaultListCellRenderer {
+
 		public ClueRenderer() {
 			setOpaque(true);
 		}
 
 		public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected,
 				boolean cellHasFocus) {
-
 			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 
-			// if (solvedSupport && ((Clue) value).solved) {
-			// setBackground(new Color(151, 206, 139));
-			// } else {
-			// setBackground(list.getBackground());
-			// }
+			if (solvedSupport && ((Clue) value).solved)
+				setBackground(new Color(151, 206, 139));
+			if (isSelected)
+				setBorder(BorderFactory.createLineBorder(new Color(99, 130, 191)));
 
 			return this;
 		}
@@ -367,7 +389,7 @@ class PuzzleGUI extends JFrame {
 			buffImg = new BufferedImage(smallestDim, smallestDim, BufferedImage.TYPE_INT_ARGB);
 			drawGrid(buffImg);
 			Graphics2D g = (Graphics2D) gr;
-			g.setColor(Color.WHITE);
+			g.setColor(new Color(238, 238, 238));
 			g.fillRect(0, 0, width, height);
 			g.drawImage(buffImg, xOffset, yOffset, smallestDim, smallestDim, null);
 		}
@@ -535,44 +557,44 @@ class PuzzleGUI extends JFrame {
 		}
 
 		private void checkSolved(Cell cell) {
-			if (cell.hasAcross()) {
-				boolean solved = true;
-				int y = cell.acrossClue.y;
-				for (int x = cell.acrossClue.x; x < cell.acrossClue.x + cell.acrossClue.length(); x++) {
+			if (cell.hasAcross())
+				checkClueSolved(cell.acrossClue, ACROSS);
+			if (cell.hasDown())
+				checkClueSolved(cell.downClue, DOWN);
+
+		}
+
+		private void checkClueSolved(Clue clue, int direct) {
+			boolean solved = true;
+			String direction;
+			if (direct == ACROSS)
+				direction = "across";
+			else
+				direction = "down";
+			if (direct == ACROSS) {
+				int y = clue.y;
+				for (int x = clue.x; x < clue.x + clue.length(); x++) {
 					solved = solved && puzzle[x][y].c.equals(puzzle[x][y].answer);
-					System.out.println("Across: (" + x + "," + y + ") c=" + puzzle[x][y].c + " answer="
-							+ puzzle[x][y].answer + " solved=" + solved);
 					if (!solved)
 						break;
 				}
-				if (solved && !cell.acrossClue.isSolved()) {
-					cell.acrossClue.setSolved(name);
-					Date now = new Date();
-					SimpleDateFormat formatter = new SimpleDateFormat("HH:mm");
-					if (solvedSupport)
-						logArea.append(cell.acrossClue.number + " across solved at " + formatter.format(now) + " by "
-								+ name + "\n");
+			} else {
+				int x = clue.x;
+				for (int y = clue.y; y < clue.y + clue.length(); y++) {
+					solved = solved && puzzle[x][y].c.equals(puzzle[x][y].answer);
+					if (!solved)
+						break;
 				}
 			}
-			if (cell.hasDown()) {
-				boolean solved = true;
-				int x = cell.downClue.x;
-				System.out.println("Down start.y " + cell.downClue.y + " length: " + cell.downClue.length());
-				for (int y = cell.downClue.y; y < cell.downClue.y + cell.downClue.length(); y++) {
-					solved = solved && puzzle[x][y].c.equals(puzzle[x][y].answer);
-					System.out.println("Down: (" + x + "," + y + ") c=" + puzzle[x][y].c + " answer="
-							+ puzzle[x][y].answer + " solved=" + solved);
-					if (!solved)
-						break;
-				}
-				if (solved && !cell.downClue.isSolved()) {
-					cell.downClue.setSolved(name);
-					Date now = new Date();
-					SimpleDateFormat formatter = new SimpleDateFormat("HH:mm");
-					if (solvedSupport)
-						logArea.append(cell.downClue.number + " down solved at " + formatter.format(now) + " by "
-								+ name + "\n");
-				}
+			if (solved && !clue.isSolved()) {
+				clue.setSolved(name);
+				Date now = new Date();
+				SimpleDateFormat formatter = new SimpleDateFormat("HH:mm");
+				if (solvedSupport)
+					logArea.append(clue.number + " " + direction + " solved at " + formatter.format(now) + " by "
+							+ name + "\n");
+			} else if (!solved && clue.isSolved()) {
+				clue.setUnsolved();
 			}
 		}
 
@@ -640,6 +662,7 @@ class Crossword {
 }
 
 class Clue {
+
 	final int number, x, y, length;
 	final String clue, answer;
 	boolean solved;
@@ -684,6 +707,12 @@ class Clue {
 		solvedAt = new Date(System.currentTimeMillis());
 	}
 
+	void setUnsolved() {
+		solved = false;
+		solvedBy = null;
+		solvedAt = null;
+	}
+
 	boolean isSolved() {
 		return solved;
 	}
@@ -697,4 +726,280 @@ class Clue {
 		return clueDisplay;
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((answer == null) ? 0 : answer.hashCode());
+		result = prime * result + ((clue == null) ? 0 : clue.hashCode());
+		result = prime * result + number;
+		result = prime * result + x;
+		result = prime * result + y;
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Clue other = (Clue) obj;
+		if (answer == null) {
+			if (other.answer != null)
+				return false;
+		} else if (!answer.equals(other.answer))
+			return false;
+		if (clue == null) {
+			if (other.clue != null)
+				return false;
+		} else if (!clue.equals(other.clue))
+			return false;
+		if (number != other.number)
+			return false;
+		if (x != other.x)
+			return false;
+		if (y != other.y)
+			return false;
+		return true;
+	}
+
+}
+
+class CrosswordIO {
+	public static Crossword readPuzzle() {
+		String[] extensionAllowed = { "xml" };
+		File file = getFile(extensionAllowed);
+		CrosswordSAXParser parser = new CrosswordSAXParser(file);
+		return parser.getCrossword();
+	}
+
+	public static void writePuzzle(File file, Crossword crossword) {
+		OutputStream outputStream = null;
+		try {
+			outputStream = new FileOutputStream(file);
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		XMLStreamWriter writer = null;
+		;
+		try {
+			writer = XMLOutputFactory.newInstance()
+					.createXMLStreamWriter(new OutputStreamWriter(outputStream, "utf-8"));
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		} catch (XMLStreamException e) {
+			e.printStackTrace();
+		} catch (FactoryConfigurationError e) {
+			e.printStackTrace();
+		}
+
+		try {
+			writer.writeStartDocument();
+			writer.writeStartElement("crossword");
+
+			writer.writeAttribute("title", crossword.title);
+			writer.writeAttribute("size", Integer.toString(crossword.size));
+
+			writer.writeStartElement("across");
+			for (Clue clue : crossword.acrossClues) {
+				writeClue(writer, clue);
+			}
+			writer.writeEndElement();
+
+			writer.writeStartElement("down");
+			for (Clue clue : crossword.downClues) {
+				writeClue(writer, clue);
+			}
+			writer.writeEndElement();
+
+			writer.writeEndElement();
+			writer.writeEndDocument();
+
+			writer.flush();
+			writer.close();
+		} catch (XMLStreamException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void writeClue(XMLStreamWriter writer, Clue clue) throws XMLStreamException {
+		writer.writeStartElement("clueentry");
+
+		writer.writeStartElement("number");
+		writer.writeCharacters(Integer.toString(clue.number));
+		writer.writeEndElement();
+
+		writer.writeStartElement("x");
+		writer.writeCharacters(Integer.toString(clue.x));
+		writer.writeEndElement();
+
+		writer.writeStartElement("y");
+		writer.writeCharacters(Integer.toString(clue.y));
+		writer.writeEndElement();
+
+		writer.writeStartElement("clue");
+		writer.writeCharacters(clue.clue);
+		writer.writeEndElement();
+
+		writer.writeStartElement("answer");
+		writer.writeCharacters(clue.answer);
+		writer.writeEndElement();
+
+		writer.writeEndElement();
+	}
+
+	// TODO finish this
+	private static File getFile(final String[] extensionAllowed) {
+		final JFileChooser fc = new JFileChooser();
+		fc.setFileFilter(new FileFilter() {
+
+			// Accept all directories and all xml files.
+			public boolean accept(File f) {
+				if (f.isDirectory()) {
+					return true;
+				}
+
+				// get extension
+				String fileName = f.getName();
+				int i = fileName.lastIndexOf('.');
+				String extension = "";
+				if (i > 0 && i < fileName.length() - 1) {
+					extension = fileName.substring(i + 1).toLowerCase();
+				}
+
+				return checkExtension(extension, extensionAllowed);
+			}
+
+			// The description of this filter
+			public String getDescription() {
+				return extensionAllowed.toString();
+			}
+		});
+		fc.setAcceptAllFileFilterUsed(false);
+		int returnVal = fc.showSaveDialog(null);
+		if (returnVal == JFileChooser.APPROVE_OPTION) {
+			File file = fc.getSelectedFile();
+			String fileName = file.getName();
+			int i = fileName.lastIndexOf('.');
+			String extension = "";
+			if (i > 0 && i < fileName.length() - 1) {
+				extension = fileName.substring(i + 1).toLowerCase();
+			}
+			// only accept these extensions
+			if (checkExtension(extension, extensionAllowed)) {
+				return file;
+			} else {
+				Object[] options = { "Try Again", "Cancel" };
+				int n = JOptionPane.showOptionDialog(null, "Invalid extension", "Error",
+						JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.ERROR_MESSAGE, null, options, options[1]);
+				if (n == 0) { // Try again
+					return getFile(extensionAllowed);
+				}
+			}
+		}
+	}
+
+	private static boolean checkExtension(String extension, String[] extensionAllowed) {
+		if (extension != null) {
+			boolean allowed = false;
+			for (int i = 0; i < extensionAllowed.length; i++) {
+				allowed = allowed || extension.equals(extensionAllowed[i]);
+				if (allowed)
+					return true;
+			}
+		}
+		return false;
+	}
+}
+
+class CrosswordSAXParser extends DefaultHandler {
+
+	Crossword crossword;
+
+	ArrayList<Clue> acrossClues, downClues;
+	File xmlFile;
+	private String tempVal;
+	boolean across, down;
+
+	private Clue tempClue;
+	private String tempClueStr, tempAnswerStr, tempNumStr, tempXStr, tempYStr;
+
+	public CrosswordSAXParser(File xmlFile) {
+		this.xmlFile = xmlFile;
+		acrossClues = new ArrayList<Clue>();
+		downClues = new ArrayList<Clue>();
+		parseDocument();
+	}
+
+	private void parseDocument() {
+
+		// get a factory
+		SAXParserFactory spf = SAXParserFactory.newInstance();
+		try {
+			// get a new instance of parser
+			SAXParser sp = spf.newSAXParser();
+
+			// parse the file and also register this class for call backs
+			sp.parse(xmlFile, this);
+		} catch (SAXException se) {
+			se.printStackTrace();
+		} catch (ParserConfigurationException pce) {
+			pce.printStackTrace();
+		} catch (IOException ie) {
+			ie.printStackTrace();
+		}
+	}
+
+	public Crossword getCrossword() {
+		return crossword;
+	}
+
+	// Event Handlers
+	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+		// reset
+		tempVal = "";
+		if (qName.equalsIgnoreCase("crossword")) {
+			crossword = new Crossword(attributes.getValue("title"), Integer.parseInt(attributes.getValue("size")),
+					acrossClues, downClues);
+		} else if (qName.equalsIgnoreCase("across")) {
+			across = true;
+		} else if (qName.equalsIgnoreCase("down")) {
+			down = true;
+		}
+
+	}
+
+	public void characters(char[] ch, int start, int length) throws SAXException {
+		tempVal = new String(ch, start, length);
+	}
+
+	public void endElement(String uri, String localName, String qName) throws SAXException {
+
+		if (qName.equalsIgnoreCase("number")) {
+			tempNumStr = tempVal;
+		} else if (qName.equalsIgnoreCase("x")) {
+			tempXStr = tempVal;
+		} else if (qName.equalsIgnoreCase("y")) {
+			tempYStr = tempVal;
+		} else if (qName.equalsIgnoreCase("clue")) {
+			tempClueStr = tempVal;
+		} else if (qName.equalsIgnoreCase("answer")) {
+			tempAnswerStr = tempVal;
+		} else if (qName.equalsIgnoreCase("clueentry")) {
+
+			int num = Integer.parseInt(tempNumStr);
+			int x = Integer.parseInt(tempXStr);
+			int y = Integer.parseInt(tempYStr);
+
+			tempClue = new Clue(num, x, y, tempClueStr, tempAnswerStr);
+
+			if (across)
+				acrossClues.add(tempClue);
+			else if (down)
+				downClues.add(tempClue);
+		}
+	}
 }
