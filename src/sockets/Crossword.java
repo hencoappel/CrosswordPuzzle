@@ -142,11 +142,11 @@ class PuzzleGUI extends JFrame {
 			public void keyPressed(KeyEvent e) {
 				if (e.getKeyCode() == KeyEvent.VK_ENTER) {
 					if (out != null)
-						out.println("chat:" + chatField.getText());
+						out.println("chat:" + name + ":" + chatField.getText());
 					Date now = new Date();
 					SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 					formatter.format(now);
-					logArea.append(formatter.format(now) + " : " + name + " says: " + chatField.getText());
+					logArea.append(formatter.format(now) + "\n\t" + name + " says: " + chatField.getText() + "\n");
 					chatField.setText("");
 				}
 			}
@@ -159,7 +159,7 @@ class PuzzleGUI extends JFrame {
 		JScrollPane textAreaPanel = new JScrollPane(logArea);
 		textAreaPanel.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		textPanel.add(textAreaPanel, BorderLayout.CENTER);
-		textPanel.setPreferredSize(new Dimension(500, 100));
+		textPanel.setPreferredSize(new Dimension(500, 140));
 		textPanel.setMinimumSize(new Dimension(500, 400));
 		textPanel.setMaximumSize(new Dimension(2000, 400));
 
@@ -500,7 +500,7 @@ class PuzzleGUI extends JFrame {
 						Date now = new Date();
 						SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 						formatter.format(now);
-						logArea.append(formatter.format(now) + " : " + vals[1] + " says: " + vals[2]);
+						logArea.append(formatter.format(now) + "\n\t" + vals[1] + " says: " + vals[2] + "\n");
 					}
 				}
 				connected = false;
@@ -549,7 +549,10 @@ class PuzzleGUI extends JFrame {
 		// ignore cancel or empty string
 		if (option != null && !option.equals("")) {
 			name = option;
-			logArea.append("Current user: " + name + "\n");
+			Date now = new Date();
+			SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+
+			logArea.append(formatter.format(now) + "\n\tCurrent user: " + name + "\n");
 		}
 	}
 
@@ -998,12 +1001,12 @@ class PuzzleGUI extends JFrame {
 			if (solved && !clue.isSolved()) {
 				clue.setSolved(username);
 				if (solvedSupport)
-					logArea.append(getTime() + " : " + clue.number + " " + direction + " solved by " + username + "\n");
+					logArea.append(getTime() + "\n\t" + clue.number + " " + direction + " solved by " + username + "\n");
 			} else if (!solved && clue.isSolved()) {
 				clue.setUnsolved();
 			}
 			if (solved && checkPuzzleSolved()) {
-				logArea.append(getTime() + " : Crossword \"" + currentCrossword + "\" solved by " + username + "\n");
+				logArea.append(getTime() + "\n\tCrossword \"" + currentCrossword + "\" solved by " + username + "\n");
 			}
 		}
 

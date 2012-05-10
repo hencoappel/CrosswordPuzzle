@@ -32,7 +32,6 @@ public class CrosswordServer implements Runnable {
 			try {
 				s = serverSocket.accept();
 			} catch (IOException e) {
-				e.printStackTrace();
 			}
 			
 			newClient(s);
@@ -49,7 +48,6 @@ public class CrosswordServer implements Runnable {
 			inStreams.put(s, in);
 			new Thread(new ClientsRead(s)).start();
 		} catch (IOException e) {
-			e.printStackTrace();
 		}
 	}
 	
@@ -72,7 +70,6 @@ public class CrosswordServer implements Runnable {
 				}
 				System.out.println("Stop");
 			} catch (IOException e) {
-				e.printStackTrace();
 			}
 		}
 	}
