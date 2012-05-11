@@ -25,6 +25,9 @@ import org.xml.sax.helpers.DefaultHandler;
  * set the host to 'localhost' or find out the IP of the computer the server is running on if on two
  * separate computer on a network.
  * 
+ * My network play currently only supports both users already on the same crossword and it doesn't 
+ * synchronise data entered before entering network mode as I haven't had time to implement this.
+ * 
  */
 @SuppressWarnings("serial")
 class PuzzleGUI extends JFrame {
