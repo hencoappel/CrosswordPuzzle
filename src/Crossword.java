@@ -17,9 +17,18 @@ import javax.xml.stream.FactoryConfigurationError;
 import org.xml.sax.*;
 import org.xml.sax.helpers.DefaultHandler;
 
+/*
+ * I have implemented network play and included my server file with source code for you to use.
+ * Currently my program defaults to linuxproj where I am already running a server which you can use.
+ * To use linuxproj as a server, you either have to be on a ECS computer or on the ECS VPN.
+ * Alternatively, compile and run the server yourself and if testing the server from a single computer,
+ * set the host to 'localhost' or find out the IP of the computer the server is running on if on two
+ * separate computer on a network.
+ * 
+ */
 @SuppressWarnings("serial")
 class PuzzleGUI extends JFrame {
-
+	
 	/**
 	 * Start the program
 	 * 
@@ -33,7 +42,7 @@ class PuzzleGUI extends JFrame {
 			}
 		});
 	}
-
+	
 	public static final String CW_EXT = "cw";// CrossWord
 	public static final String CW_SAVE_EXT = "cws";// CrossWord Save
 	private List<Crossword> crosswords; // available crosswords
@@ -44,21 +53,21 @@ class PuzzleGUI extends JFrame {
 	private JList acrossJList, downJList;
 	private JTextArea logArea;
 	private String userName;
-	private JFrame window; // to reference this JFrame
+	private Window window; // to reference this JFrame
 	private boolean solvedSupport;
-
+	
 	// Networking objects
 	private Socket socket = null;
 	private PrintWriter out = null;
 	private BufferedReader in = null;
 	private boolean connected;
 	private Thread input;
-
+	
 	public PuzzleGUI() {
 		super("Crossword Puzzle");
 		initGUI();
 	}
-
+	
 	/**
 	 * Initialise all GUI components
 	 */
@@ -68,7 +77,7 @@ class PuzzleGUI extends JFrame {
 		acrossJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		acrossJList.setCellRenderer(new ClueRenderer());
 		acrossJList.addListSelectionListener(new ListSelectionListener() {
-
+			
 			@Override
 			public void valueChanged(ListSelectionEvent e) {
 				JList source = (JList) e.getSource();
@@ -80,12 +89,12 @@ class PuzzleGUI extends JFrame {
 				}
 			}
 		});
-
+		
 		downJList = new JList();
 		downJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		downJList.setCellRenderer(new ClueRenderer());
 		downJList.addListSelectionListener(new ListSelectionListener() {
-
+			
 			@Override
 			public void valueChanged(ListSelectionEvent e) {
 				if (!((JList) e.getSource()).isSelectionEmpty()) {
@@ -97,13 +106,13 @@ class PuzzleGUI extends JFrame {
 			}
 		});
 		crosswordTitle = new JLabel("", SwingConstants.CENTER);
-
+		
 		initialiseCrosswords();
 		window = this;
-
+		
 		JPanel panel = new JPanel();
 		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-
+		
 		JPanel crosswordPanel = new JPanel();
 		crosswordPanel.setLayout(new BoxLayout(crosswordPanel, BoxLayout.X_AXIS));
 		JPanel gridPanel = new JPanel(new BorderLayout(10, 10));
@@ -111,30 +120,30 @@ class PuzzleGUI extends JFrame {
 		grid = new CrosswordGrid(puzzle, this);
 		gridPanel.add(grid, BorderLayout.CENTER);
 		crosswordPanel.add(gridPanel);
-
+		
 		JPanel cluePanel = new JPanel(new GridLayout(2, 1, 5, 5));
 		cluePanel.setPreferredSize(new Dimension(220, 200));
-
+		
 		JPanel acrossCluesPanel = new JPanel(new BorderLayout());
 		acrossCluesPanel.add(new JLabel("Across Clues", SwingConstants.CENTER), BorderLayout.NORTH);
 		acrossCluesPanel.add(new JScrollPane(acrossJList), BorderLayout.CENTER);
-
+		
 		JPanel downCluesPanel = new JPanel(new BorderLayout());
 		downCluesPanel.add(new JLabel("Down Clues", SwingConstants.CENTER), BorderLayout.NORTH);
 		downCluesPanel.add(new JScrollPane(downJList), BorderLayout.CENTER);
-
+		
 		cluePanel.add(acrossCluesPanel);
 		cluePanel.add(downCluesPanel);
 		crosswordPanel.add(cluePanel);
 		panel.add(crosswordPanel);
-
+		
 		JPanel textPanel = new JPanel(new BorderLayout());
-
+		
 		JPanel chatPanel = new JPanel();
 		chatPanel.add(new JLabel("Chat:"));
 		final JTextField chatField = new JTextField(30);
 		chatField.addKeyListener(new KeyAdapter() {
-
+			
 			@Override
 			public void keyPressed(KeyEvent e) {
 				// Send chat to server to broadcast
@@ -144,14 +153,15 @@ class PuzzleGUI extends JFrame {
 					else
 						JOptionPane.showMessageDialog(window, "No network connection", "Error",
 								JOptionPane.ERROR_MESSAGE);
-					logArea.append(Tools.getTime() + "\n\t" + userName + " says: " + chatField.getText() + "\n");
+					logArea.append(Tools.getTime() + "\n\t" + userName + " says: "
+							+ chatField.getText() + "\n");
 					chatField.setText("");
 				}
 			}
 		});
 		chatPanel.add(chatField);
 		textPanel.add(chatPanel, BorderLayout.NORTH);
-
+		
 		logArea = new JTextArea();
 		logArea.setEditable(false);
 		JScrollPane textAreaPanel = new JScrollPane(logArea);
@@ -161,9 +171,9 @@ class PuzzleGUI extends JFrame {
 		textPanel.setPreferredSize(new Dimension(500, 140));
 		textPanel.setMinimumSize(new Dimension(500, 400));
 		textPanel.setMaximumSize(new Dimension(2000, 400));
-
+		
 		panel.add(textPanel);
-
+		
 		setContentPane(panel);
 		// setup menubar
 		JMenuBar menuBar = createMenuBar();
@@ -176,10 +186,11 @@ class PuzzleGUI extends JFrame {
 		do {
 			setUser();
 			if (userName == null)
-				JOptionPane.showMessageDialog(window, "Must enter a name", "Error", JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(window, "Must enter a name", "Error",
+						JOptionPane.ERROR_MESSAGE);
 		} while (userName == null);// force user to set a name
 	}
-
+	
 	/**
 	 * Adds a {@link Crossword} to available {@link Crossword}
 	 * 
@@ -190,7 +201,7 @@ class PuzzleGUI extends JFrame {
 		if (crossword != null && !crosswords.contains(crossword))
 			crosswords.add(crossword);
 	}
-
+	
 	/**
 	 * Choose a {@link Crossword} from a list of the available ones
 	 * 
@@ -202,15 +213,15 @@ class PuzzleGUI extends JFrame {
 		pane.setPreferredSize(new Dimension(160, 200));
 		list.setLayoutOrientation(JList.VERTICAL);
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		int option = JOptionPane.showOptionDialog(window, pane, "Choose Crossword", JOptionPane.OK_CANCEL_OPTION,
-				JOptionPane.PLAIN_MESSAGE, null, null, null);
+		int option = JOptionPane.showOptionDialog(window, pane, "Choose Crossword",
+				JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, null, null);
 		if (option == JOptionPane.OK_OPTION)
 			return (Crossword) list.getSelectedValue();
 		else
 			return null;
-
+		
 	}
-
+	
 	/**
 	 * Set the user
 	 */
@@ -222,9 +233,10 @@ class PuzzleGUI extends JFrame {
 			logArea.append(Tools.getTime() + "\n\tCurrent user: " + userName + "\n");
 		}
 	}
-
+	
 	/**
-	 * Create 2 {@link Crossword}s and add them to my list of crosswords, then load a {@link Crossword}
+	 * Create 2 {@link Crossword}s and add them to my list of crosswords, then load a
+	 * {@link Crossword}
 	 */
 	private void initialiseCrosswords() {
 		crosswords = new ArrayList<Crossword>();
@@ -263,7 +275,7 @@ class PuzzleGUI extends JFrame {
 		loadCrossword(crosswords.get(1));
 		// @formatter:on
 	}
-
+	
 	/**
 	 * 
 	 * ListCellRenderer for {@link Clue} {@link JList}s. It highlights solved {@link Clue}s in green
@@ -272,20 +284,20 @@ class PuzzleGUI extends JFrame {
 	 * 
 	 */
 	class ClueRenderer extends DefaultListCellRenderer {
-		public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected,
-				boolean cellHasFocus) {
+		public Component getListCellRendererComponent(JList list, Object value, int index,
+				boolean isSelected, boolean cellHasFocus) {
 			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 			// set background to green if solve support is on and clue is solved
 			if (solvedSupport && ((Clue) value).solved)
 				setBackground(new Color(151, 206, 139));
 			if (isSelected)
 				setBorder(BorderFactory.createLineBorder(new Color(99, 130, 191)));
-
+			
 			return this;
 		}
-
+		
 	}
-
+	
 	/**
 	 * Load a {@link Crossword}
 	 * 
@@ -297,10 +309,10 @@ class PuzzleGUI extends JFrame {
 		currentCrossword = crossword;
 		crosswordTitle.setText(crossword.title);
 		puzzle = new Cell[currentCrossword.size][currentCrossword.size];
-
+		
 		acrossJList.setListData(currentCrossword.acrossClues.toArray());
 		downJList.setListData(currentCrossword.downClues.toArray());
-
+		
 		// load clues
 		for (Clue clue : currentCrossword.acrossClues)
 			loadClue(clue, true);
@@ -310,7 +322,7 @@ class PuzzleGUI extends JFrame {
 			grid.setPuzzle(puzzle);
 		}
 	}
-
+	
 	/**
 	 * Load a given {@link Clue} into the puzzle array
 	 * 
@@ -327,7 +339,7 @@ class PuzzleGUI extends JFrame {
 			character = answer[0];
 		if (puzzle[clue.x][clue.y] == null)
 			puzzle[clue.x][clue.y] = new Cell(character, answer[0], null, null);
-
+		
 		if (across) {
 			puzzle[clue.x][clue.y].setAcrossClue(clue);
 			// only if already empty, set to character
@@ -369,7 +381,7 @@ class PuzzleGUI extends JFrame {
 			}
 		}
 	}
-
+	
 	/**
 	 * Create the {@link JMenuBar}
 	 * 
@@ -378,15 +390,15 @@ class PuzzleGUI extends JFrame {
 	private JMenuBar createMenuBar() {
 		// setup menubar
 		JMenuBar menuBar = new JMenuBar();
-
+		
 		JMenu fileMenu = new JMenu("File");
-
+		
 		JMenuItem loadProgress = new JMenuItem();
 		loadProgress.setAction(new AbstractAction("Open Saved Game") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				String[] extensionAllowed = { CW_SAVE_EXT };
-				File file = CrosswordIO.getFile(extensionAllowed, true);
+				File file = CrosswordIO.getFile(window, extensionAllowed, true);
 				if (file == null) // no file selected
 					return;
 				Crossword c = CrosswordIO.readPuzzle(file);
@@ -394,21 +406,21 @@ class PuzzleGUI extends JFrame {
 					addCrossword(c);
 					loadCrossword(c);
 				} else {
-					JOptionPane.showMessageDialog(window, "Error occurred while reading the file", "Error",
-							JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(window, "Error occurred while reading the file",
+							"Error", JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		});
 		loadProgress.setMnemonic(KeyEvent.VK_O);
 		loadProgress.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, ActionEvent.CTRL_MASK));
 		fileMenu.add(loadProgress);
-
+		
 		JMenuItem saveProgress = new JMenuItem();
 		saveProgress.setAction(new AbstractAction("Save Game") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				String[] extensionAllowed = { CW_SAVE_EXT };
-				File file = CrosswordIO.getFile(extensionAllowed, false);
+				File file = CrosswordIO.getFile(window, extensionAllowed, false);
 				if (file != null) // no file selected
 					CrosswordIO.writePuzzle(file, currentCrossword);
 			}
@@ -416,16 +428,16 @@ class PuzzleGUI extends JFrame {
 		saveProgress.setMnemonic(KeyEvent.VK_S);
 		saveProgress.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, ActionEvent.CTRL_MASK));
 		fileMenu.add(saveProgress);
-
+		
 		fileMenu.addSeparator();
-
+		
 		JMenuItem resetCrossword = new JMenuItem();
 		resetCrossword.setAction(new AbstractAction("Reset Crossword") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				if (currentCrossword != null) {
 					currentCrossword.resetCrossword();
-
+					
 					// reset Cell values
 					for (Cell[] cellarr : puzzle)
 						for (Cell cell : cellarr)
@@ -438,7 +450,7 @@ class PuzzleGUI extends JFrame {
 		resetCrossword.setMnemonic(KeyEvent.VK_R);
 		resetCrossword.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, ActionEvent.CTRL_MASK));
 		fileMenu.add(resetCrossword);
-
+		
 		JMenuItem loadCrossword = new JMenuItem();
 		loadCrossword.setAction(new AbstractAction("Load Crossword") {
 			@Override
@@ -451,47 +463,50 @@ class PuzzleGUI extends JFrame {
 		loadCrossword.setMnemonic(KeyEvent.VK_L);
 		loadCrossword.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, ActionEvent.CTRL_MASK));
 		fileMenu.add(loadCrossword);
-
+		
 		fileMenu.addSeparator();
-
+		
 		JMenuItem importCrossword = new JMenuItem();
 		importCrossword.setAction(new AbstractAction("Import Crossword") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				String[] extensionAllowed = { CW_EXT };
-				File file = CrosswordIO.getFile(extensionAllowed, true);
+				File file = CrosswordIO.getFile(window, extensionAllowed, true);
 				if (file != null) { // no file selected
 					Crossword c = CrosswordIO.importPuzzle(file);
 					if (c != null)
 						addCrossword(c);
 					else
-						JOptionPane.showMessageDialog(window, "Error occurred while reading the file", "Error",
+						JOptionPane.showMessageDialog(window,
+								"Error occurred while reading the file", "Error",
 								JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		});
 		importCrossword.setMnemonic(KeyEvent.VK_I);
-		importCrossword.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, ActionEvent.CTRL_MASK));
+		importCrossword
+				.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, ActionEvent.CTRL_MASK));
 		fileMenu.add(importCrossword);
-
+		
 		JMenuItem exportCrossword = new JMenuItem();
 		exportCrossword.setAction(new AbstractAction("Export Crossword") {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				String[] extensionAllowed = { CW_EXT };
 				Crossword c = chooseCrossword();
-				File file = CrosswordIO.getFile(extensionAllowed, false);
+				File file = CrosswordIO.getFile(window, extensionAllowed, false);
 				if (file != null) // no file selected
 					if (c != null)
 						CrosswordIO.exportPuzzle(file, c);
 			}
 		});
 		exportCrossword.setMnemonic(KeyEvent.VK_E);
-		exportCrossword.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, ActionEvent.CTRL_MASK));
+		exportCrossword
+				.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, ActionEvent.CTRL_MASK));
 		fileMenu.add(exportCrossword);
-
+		
 		fileMenu.addSeparator();
-
+		
 		JMenuItem closeWindow = new JMenuItem();
 		closeWindow.setAction(new AbstractAction("Close") {
 			@Override
@@ -504,11 +519,11 @@ class PuzzleGUI extends JFrame {
 		closeWindow.setMnemonic(KeyEvent.VK_Q);
 		closeWindow.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, ActionEvent.CTRL_MASK));
 		fileMenu.add(closeWindow);
-
+		
 		menuBar.add(fileMenu);
-
+		
 		JMenu optionsMenu = new JMenu("Options");
-
+		
 		JMenuItem setUser = new JMenuItem();
 		setUser.setAction(new AbstractAction("Set User") {
 			@Override
@@ -520,7 +535,7 @@ class PuzzleGUI extends JFrame {
 		setUser.setMnemonic(KeyEvent.VK_U);
 		setUser.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_U, ActionEvent.CTRL_MASK));
 		optionsMenu.add(setUser);
-
+		
 		JCheckBoxMenuItem toggleSolvedSupport = new JCheckBoxMenuItem();
 		toggleSolvedSupport.setAction(new AbstractAction("Solved Help") {
 			@Override
@@ -531,9 +546,10 @@ class PuzzleGUI extends JFrame {
 			}
 		});
 		toggleSolvedSupport.setMnemonic(KeyEvent.VK_H);
-		toggleSolvedSupport.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, ActionEvent.CTRL_MASK));
+		toggleSolvedSupport.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H,
+				ActionEvent.CTRL_MASK));
 		optionsMenu.add(toggleSolvedSupport);
-
+		
 		JMenuItem anagram = new JMenuItem();
 		final SpinnerModel numWordsModel = new SpinnerNumberModel(1, // initial value
 				1, // min
@@ -553,7 +569,8 @@ class PuzzleGUI extends JFrame {
 					return;
 				word = word.replaceAll(" ", "+");
 				int option = JOptionPane.showOptionDialog(window, numWordsSpinner, "Number Words",
-						JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
+						JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null, null,
+						null);
 				int numWords;
 				if (option == JOptionPane.OK_OPTION) {
 					numWords = ((Integer) numWordsModel.getValue());
@@ -563,11 +580,12 @@ class PuzzleGUI extends JFrame {
 				numWordsSpinner.setValue(1);
 				try {
 					// open webpage
-					String address = "http://www.ssynth.co.uk/~gay/cgi-bin/nph-an?line=" + word + "&words=" + numWords
-							+ "&dict=antworth&doai=on";
+					String address = "http://www.ssynth.co.uk/~gay/cgi-bin/nph-an?line=" + word
+							+ "&words=" + numWords + "&dict=antworth&doai=on";
 					URL webpage = new URL(address);
-
-					BufferedReader readPage = new BufferedReader(new InputStreamReader(webpage.openStream()));
+					
+					BufferedReader readPage = new BufferedReader(new InputStreamReader(webpage
+							.openStream()));
 					String line = "";
 					// move to line starting with <pre>
 					while (!(line = readPage.readLine()).contains("<pre>"))
@@ -590,11 +608,13 @@ class PuzzleGUI extends JFrame {
 					pane.setPreferredSize(new Dimension(160, 200));
 					list.setLayoutOrientation(JList.VERTICAL);
 					list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-					JOptionPane.showMessageDialog(window, pane, "Anagrams", JOptionPane.PLAIN_MESSAGE);
-
+					JOptionPane.showMessageDialog(window, pane, "Anagrams",
+							JOptionPane.PLAIN_MESSAGE);
+					
 				} catch (IOException ex) {
 					ex.printStackTrace();
-					JOptionPane.showMessageDialog(window, "A problem occured, possibly no internet", "Error",
+					JOptionPane.showMessageDialog(window,
+							"A problem occured, possibly no internet", "Error",
 							JOptionPane.ERROR_MESSAGE);
 				}
 			}
@@ -602,11 +622,11 @@ class PuzzleGUI extends JFrame {
 		anagram.setMnemonic(KeyEvent.VK_A);
 		anagram.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_A, ActionEvent.CTRL_MASK));
 		optionsMenu.add(anagram);
-
+		
 		menuBar.add(optionsMenu);
-
+		
 		JMenu networkingMenu = new JMenu("Networking");
-
+		
 		final JMenuItem connect = new JMenuItem();
 		connect.setAction(new AbstractAction("Connect") {
 			@Override
@@ -618,7 +638,8 @@ class PuzzleGUI extends JFrame {
 						out.close();
 						in.close();
 					} catch (IOException ex) {
-						System.err.println("Couldn't get I/O for the connection to" + socket.getInetAddress());
+						System.err.println("Couldn't get I/O for the connection to"
+								+ socket.getInetAddress());
 					}
 					connect.setText("Connect");
 					connected = false;
@@ -632,17 +653,19 @@ class PuzzleGUI extends JFrame {
 						input.start();
 						connect.setText("Disconnect");
 					} catch (UnknownHostException ex) {
-						JOptionPane.showMessageDialog(window, "Host server (linuxproj)  inaccessible at \n"
-								+ "the moment. Try setting new host", "Error", JOptionPane.ERROR_MESSAGE);
-					} catch (IOException ex) {
-						JOptionPane.showMessageDialog(window, "IO for host (linuxproj) failed", "Error",
+						JOptionPane.showMessageDialog(window,
+								"Host server (linuxproj)  inaccessible at \n"
+										+ "the moment. Try setting new host", "Error",
 								JOptionPane.ERROR_MESSAGE);
+					} catch (IOException ex) {
+						JOptionPane.showMessageDialog(window, "IO for host (linuxproj) failed",
+								"Error", JOptionPane.ERROR_MESSAGE);
 					}
 				}
 			}
 		});
 		networkingMenu.add(connect);
-
+		
 		JMenuItem changeHost = new JMenuItem();
 		changeHost.setAction(new AbstractAction("Change Host") {
 			@Override
@@ -654,14 +677,15 @@ class PuzzleGUI extends JFrame {
 						out.close();
 						in.close();
 					} catch (IOException ex) {
-						JOptionPane.showMessageDialog(window, "IO for host failed", "Error", JOptionPane.ERROR_MESSAGE);
+						JOptionPane.showMessageDialog(window, "IO for host failed", "Error",
+								JOptionPane.ERROR_MESSAGE);
 					}
 					connect.setText("Connect");
 					connected = false;
 				}
 				try {// ask for host and attempt connection
-					String host = JOptionPane.showInputDialog(window, "Enter Host Address:", "Change Host",
-							JOptionPane.PLAIN_MESSAGE);
+					String host = JOptionPane.showInputDialog(window, "Enter Host Address:",
+							"Change Host", JOptionPane.PLAIN_MESSAGE);
 					socket = new Socket(host, 1292);
 					out = new PrintWriter(socket.getOutputStream(), true);
 					in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -671,19 +695,21 @@ class PuzzleGUI extends JFrame {
 					connect.setText("Disconnect");
 				} catch (UnknownHostException ex) {
 					JOptionPane.showMessageDialog(window, "Host server inaccessible at \n"
-							+ "the moment. Try setting new host", "Error", JOptionPane.ERROR_MESSAGE);
+							+ "the moment. Try setting new host", "Error",
+							JOptionPane.ERROR_MESSAGE);
 				} catch (IOException ex) {
-					JOptionPane.showMessageDialog(window, "IO for host failed", "Error", JOptionPane.ERROR_MESSAGE);
+					JOptionPane.showMessageDialog(window, "IO for host failed", "Error",
+							JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		});
 		networkingMenu.add(changeHost);
-
+		
 		menuBar.add(networkingMenu);
-
+		
 		return menuBar;
 	}
-
+	
 	/**
 	 * Class to run and wait for input from the {@link Socket} connection
 	 * 
@@ -703,7 +729,8 @@ class PuzzleGUI extends JFrame {
 						String username = vals[3];
 						grid.setCell(x, y, c, username, false, false); // set cell
 					} else { // output chat text to log
-						logArea.append(Tools.getTime() + "\n\t" + vals[1] + " says: " + vals[2] + "\n");
+						logArea.append(Tools.getTime() + "\n\t" + vals[1] + " says: " + vals[2]
+								+ "\n");
 					}
 				}
 				connected = false;
@@ -711,7 +738,7 @@ class PuzzleGUI extends JFrame {
 			}
 		}
 	}
-
+	
 	/**
 	 * Send data as {@link String} to {@link CrosswordServer}
 	 * 
@@ -735,7 +762,7 @@ class PuzzleGUI extends JFrame {
 		line += username;
 		out.println(line);
 	}
-
+	
 	/**
 	 * Check if connected to server
 	 * 
@@ -744,7 +771,7 @@ class PuzzleGUI extends JFrame {
 	public boolean isConnected() {
 		return connected;
 	}
-
+	
 	/**
 	 * Get current username
 	 * 
@@ -753,7 +780,7 @@ class PuzzleGUI extends JFrame {
 	public String getUser() {
 		return userName;
 	}
-
+	
 	/**
 	 * Check if {@link Clue} support is on
 	 * 
@@ -762,7 +789,7 @@ class PuzzleGUI extends JFrame {
 	public boolean supportOn() {
 		return solvedSupport;
 	}
-
+	
 	/**
 	 * Return current {@link Crossword}
 	 * 
@@ -771,7 +798,7 @@ class PuzzleGUI extends JFrame {
 	public Crossword getCurrentCrossword() {
 		return currentCrossword;
 	}
-
+	
 	/**
 	 * Appends the {@link String} to logArea
 	 * 
@@ -781,7 +808,7 @@ class PuzzleGUI extends JFrame {
 	public void appendLog(String string) {
 		logArea.append(string);
 	}
-
+	
 	/**
 	 * return the acrossJList
 	 * 
@@ -790,7 +817,7 @@ class PuzzleGUI extends JFrame {
 	public JList getAcrossJList() {
 		return acrossJList;
 	}
-
+	
 	/**
 	 * return the downJList
 	 * 
@@ -799,7 +826,7 @@ class PuzzleGUI extends JFrame {
 	public JList getDownJList() {
 		return downJList;
 	}
-
+	
 }
 
 /**
@@ -809,23 +836,23 @@ class PuzzleGUI extends JFrame {
  * 
  */
 class Cell {
-
+	
 	private String c;// current char
 	private String answer;// correct char
 	private String clueNum; // only if first character
 	private Clue acrossClue, downClue; // references to clues this cell is part of
-
+			
 	public Cell(char answer, Clue acrossClue, Clue downClue) {
 		this(' ', answer, acrossClue, downClue);
 	}
-
+	
 	public Cell(char c, char answer, Clue acrossClue, Clue downClue) {
 		this.c = Character.toString(c);
 		this.answer = Character.toString(answer);
 		this.acrossClue = acrossClue;
 		this.downClue = downClue;
 	}
-
+	
 	/**
 	 * 
 	 * @return true if the cell is part of an across {@link Clue}
@@ -833,7 +860,7 @@ class Cell {
 	protected boolean hasAcross() {
 		return acrossClue != null;
 	}
-
+	
 	/**
 	 * 
 	 * @return true if the cell is part of an down {@link Clue}
@@ -841,7 +868,7 @@ class Cell {
 	protected boolean hasDown() {
 		return downClue != null;
 	}
-
+	
 	/**
 	 * 
 	 * @return true if the cell is at the start of a {@link Clue}
@@ -849,65 +876,65 @@ class Cell {
 	protected boolean isStart() {
 		return clueNum != null;
 	}
-
+	
 	/*
 	 * Getters and setters of values in this class
 	 */
-
+	
 	public String getC() {
 		return c;
 	}
-
+	
 	public void setC(String c) {
 		this.c = c;
 	}
-
+	
 	public String getAnswer() {
 		return answer;
 	}
-
+	
 	public void setAnswer(String answer) {
 		this.answer = answer;
 	}
-
+	
 	public Clue getAcrossClue() {
 		return acrossClue;
 	}
-
+	
 	public void setAcrossClue(Clue acrossClue) {
 		this.acrossClue = acrossClue;
 	}
-
+	
 	public Clue getDownClue() {
 		return downClue;
 	}
-
+	
 	public void setDownClue(Clue downClue) {
 		this.downClue = downClue;
 	}
-
+	
 	public String getClueNum() {
 		return clueNum;
 	}
-
+	
 	public void setClueNum(String clueNum) {
 		this.clueNum = clueNum;
 	}
 }
 
 class Crossword {
-
+	
 	final ArrayList<Clue> acrossClues, downClues;
 	final String title;
 	final int size;
-
+	
 	Crossword(String title, int size, ArrayList<Clue> acrossClues, ArrayList<Clue> downClues) {
 		this.title = title;
 		this.size = size;
 		this.acrossClues = acrossClues;
 		this.downClues = downClues;
 	}
-
+	
 	/**
 	 * Set all clues to unsolved
 	 */
@@ -921,14 +948,14 @@ class Crossword {
 				downIterator.next().setUnsolved();
 		}
 	}
-
+	
 	@Override
 	public String toString() {
 		return title + " (" + size + "x" + size + ")";
 	}
-
+	
 	// Assume each crossword has a unique name
-
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -936,7 +963,7 @@ class Crossword {
 		result = prime * result + ((title == null) ? 0 : title.hashCode());
 		return result;
 	}
-
+	
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
@@ -953,18 +980,18 @@ class Crossword {
 			return false;
 		return true;
 	}
-
+	
 }
 
 class Clue {
-
+	
 	protected final int number, x, y, length;
 	protected final String clue, answer;
 	protected boolean solved;
 	protected String solvedBy;
 	protected Date solvedAt;
 	protected String clueDisplay;
-
+	
 	Clue(int number, int x, int y, String clue, String answer) {
 		this.number = number;
 		this.x = x;
@@ -974,10 +1001,10 @@ class Clue {
 		length = answer.replaceAll("(-| )", "").length();
 		createClueDisplay();
 	}
-
+	
 	/**
-	 * Set the string to represent the clue, with correct number at start and the number of letters with
-	 * hyphens and words representation
+	 * Set the string to represent the clue, with correct number at start and the number of letters
+	 * with hyphens and words representation
 	 */
 	private void createClueDisplay() {
 		String temp = answer;
@@ -996,36 +1023,36 @@ class Clue {
 		clueDisplay += words[i].length();
 		clueDisplay += ")";
 	}
-
+	
 	protected void setSolved(String name) {
 		setSolved(name, new Date());
 	}
-
+	
 	protected void setSolved(String name, Date date) {
 		solved = true;
 		solvedBy = name;
 		solvedAt = date;
 	}
-
+	
 	protected void setUnsolved() {
 		solved = false;
 		solvedBy = null;
 		solvedAt = null;
 	}
-
+	
 	protected boolean isSolved() {
 		return solved;
 	}
-
+	
 	protected int length() {
 		return length;
 	}
-
+	
 	@Override
 	public String toString() {
 		return clueDisplay;
 	}
-
+	
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -1037,7 +1064,7 @@ class Clue {
 		result = prime * result + y;
 		return result;
 	}
-
+	
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
@@ -1065,12 +1092,12 @@ class Clue {
 			return false;
 		return true;
 	}
-
+	
 }
 
 @SuppressWarnings("serial")
 class CrosswordGrid extends JPanel {
-
+	
 	public static final int NONE = 0; // direction to highlight
 	public static final int ACROSS = 1;
 	public static final int DOWN = 2;
@@ -1086,7 +1113,7 @@ class CrosswordGrid extends JPanel {
 	private int clueToHighlight, highlightDirection;
 	private Point cellToHighlight;
 	private PuzzleGUI mainFrame;
-
+	
 	public CrosswordGrid(Cell[][] puzzle, PuzzleGUI mainFrame) {
 		this.mainFrame = mainFrame;
 		this.puzzle = puzzle;
@@ -1100,43 +1127,43 @@ class CrosswordGrid extends JPanel {
 			}
 		});
 		addKeyListener(new KeyAdapter() {
-
+			
 			@Override
 			public void keyPressed(KeyEvent e) {
 				switch (e.getKeyCode()) {
-				case KeyEvent.VK_UP:
-					move(UP);
-					break;
-				case KeyEvent.VK_BACK_SPACE:
-					setCell(Character.toUpperCase(' '), false);
-					break;
-				case KeyEvent.VK_DOWN:
-					move(DOWN);
-					break;
-				case KeyEvent.VK_LEFT:
-					move(LEFT);
-					break;
-				case KeyEvent.VK_RIGHT:
-					move(RIGHT);
-					break;
-				default:
-					// a cell must be selected
-					if (!cellToHighlight.equals(new Point(-1, -1))) {
-						char c = Character.toUpperCase(e.getKeyChar());
-						if (c >= 'A' && c <= 'Z')
-							setCell(Character.toUpperCase(e.getKeyChar()));
-					}
-					break;
+					case KeyEvent.VK_UP:
+						move(UP);
+						break;
+					case KeyEvent.VK_BACK_SPACE:
+						setCell(Character.toUpperCase(' '), false);
+						break;
+					case KeyEvent.VK_DOWN:
+						move(DOWN);
+						break;
+					case KeyEvent.VK_LEFT:
+						move(LEFT);
+						break;
+					case KeyEvent.VK_RIGHT:
+						move(RIGHT);
+						break;
+					default:
+						// a cell must be selected
+						if (!cellToHighlight.equals(new Point(-1, -1))) {
+							char c = Character.toUpperCase(e.getKeyChar());
+							if (c >= 'A' && c <= 'Z')
+								setCell(Character.toUpperCase(e.getKeyChar()));
+						}
+						break;
 				}
 			}
-
+			
 		});
 		clueToHighlight = 0;
 		cellToHighlight = new Point(-1, -1);
 		highlightDirection = NONE;
 		cellWidth = 0;
 	}
-
+	
 	public void paint(Graphics gr) {
 		xOffset = yOffset = 0; // reset to prevent incorrect displacement
 		// to reduce calls to getHeight() and getWidth()
@@ -1160,7 +1187,7 @@ class CrosswordGrid extends JPanel {
 		g.fillRect(0, 0, width, height);
 		g.drawImage(buffImg, xOffset, yOffset, smallestDim, smallestDim, null);
 	}
-
+	
 	/**
 	 * Draws the grid to the passed {@link Image}
 	 * 
@@ -1169,7 +1196,8 @@ class CrosswordGrid extends JPanel {
 	 */
 	private void drawGrid(BufferedImage img) {
 		Graphics2D g = (Graphics2D) img.getGraphics();
-		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
+		g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+				RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
 		if (prevCellWidth != cellWidth) {
 			int fontSize = (int) (cellWidth - 17); // roughly the right value to
 			// start at
@@ -1191,7 +1219,7 @@ class CrosswordGrid extends JPanel {
 			for (int y = 0; y < puzzle.length; y++)
 				drawCell(puzzle[x][y], x, y, g);
 	}
-
+	
 	/**
 	 * Draw cells with the correct highlighting and text
 	 * 
@@ -1228,7 +1256,8 @@ class CrosswordGrid extends JPanel {
 			g.setColor(Color.BLACK);
 			FontMetrics fm = g.getFontMetrics();
 			// complex positioning using FontMetrics
-			g.drawString(cell.getC(), (int) (xCoord + width / 2 - fm.getStringBounds(cell.getC(), g).getWidth() / 2),
+			g.drawString(cell.getC(), (int) (xCoord + width / 2 - fm
+					.getStringBounds(cell.getC(), g).getWidth() / 2),
 					(int) (yCoord + fm.getHeight() / 2.2 + width / 2));
 			if (cell.isStart()) { // the little numbers
 				Font temp = g.getFont(); // to reset font afterwards
@@ -1238,7 +1267,7 @@ class CrosswordGrid extends JPanel {
 			}
 		}
 	}
-
+	
 	/**
 	 * Convert mouse coordinates to coordinates of cells in array
 	 * 
@@ -1253,7 +1282,7 @@ class CrosswordGrid extends JPanel {
 		y = (int) ((y - yOffset) / cellWidth);
 		return new Point(x, y);
 	}
-
+	
 	/**
 	 * Highlight a cell. Code to toggle between which clue gets highlighted isn't very tidy.
 	 * 
@@ -1274,7 +1303,7 @@ class CrosswordGrid extends JPanel {
 		Cell cell = puzzle[x][y];
 		if (cell != null) {
 			Point cellHighlight = new Point(x, y);
-
+			
 			if (this.cellToHighlight.equals(cellHighlight)) { // clicked same cell again
 				if (highlightDirection == ACROSS) {
 					if (cell.hasDown()) {
@@ -1310,7 +1339,7 @@ class CrosswordGrid extends JPanel {
 		}
 		repaint();
 	}
-
+	
 	/**
 	 * Convenience method to highlight nothing
 	 */
@@ -1318,7 +1347,7 @@ class CrosswordGrid extends JPanel {
 		this.cellToHighlight = new Point(-1, -1);
 		highlightClue(null, NONE);
 	}
-
+	
 	/**
 	 * Highlight clue
 	 * 
@@ -1337,7 +1366,7 @@ class CrosswordGrid extends JPanel {
 		selectClueInList(clue, direction); // highlight in list
 		requestFocus();
 	}
-
+	
 	/**
 	 * Highlight clue from coordinates and number and direction
 	 * 
@@ -1360,7 +1389,7 @@ class CrosswordGrid extends JPanel {
 		repaint();
 		requestFocus();
 	}
-
+	
 	/**
 	 * Selects clue in JList
 	 * 
@@ -1383,7 +1412,7 @@ class CrosswordGrid extends JPanel {
 			mainFrame.getDownJList().clearSelection();
 		}
 	}
-
+	
 	/**
 	 * Set the value of Cell, using current highlighted cell
 	 * 
@@ -1393,11 +1422,12 @@ class CrosswordGrid extends JPanel {
 	protected void setCell(char character) {
 		// only if called by keylistener
 		if (mainFrame.isConnected()) {// send data to server
-			mainFrame.outStream(cellToHighlight.x, cellToHighlight.y, character, mainFrame.getUser());
+			mainFrame.outStream(cellToHighlight.x, cellToHighlight.y, character,
+					mainFrame.getUser());
 		}
 		setCell(character, true);
 	}
-
+	
 	/**
 	 * Set the value of Cell, using current highlighted cell.
 	 * 
@@ -1409,7 +1439,7 @@ class CrosswordGrid extends JPanel {
 	protected void setCell(char character, boolean forward) {
 		setCell(cellToHighlight.x, cellToHighlight.y, character, mainFrame.getUser(), forward, true);
 	}
-
+	
 	/**
 	 * Set the value of Cell, using passed coordinates.
 	 * 
@@ -1425,7 +1455,7 @@ class CrosswordGrid extends JPanel {
 	protected void setCell(int x, int y, char character, String username) {
 		setCell(x, y, character, username, true, true);
 	}
-
+	
 	/**
 	 * Set the value of Cell, using passed coordinates.
 	 * 
@@ -1442,7 +1472,8 @@ class CrosswordGrid extends JPanel {
 	 * @param move
 	 *            - whether to move or not
 	 */
-	protected void setCell(int x, int y, char character, String username, boolean forward, boolean move) {
+	protected void setCell(int x, int y, char character, String username, boolean forward,
+			boolean move) {
 		int dir = NONE;
 		if (move) {
 			if (forward) {
@@ -1459,7 +1490,7 @@ class CrosswordGrid extends JPanel {
 		}
 		setCell(x, y, character, username, dir);
 	}
-
+	
 	/**
 	 * 
 	 * @param x
@@ -1478,7 +1509,7 @@ class CrosswordGrid extends JPanel {
 		checkClueSolved(puzzle[x][y], username);
 		move(direction);
 	}
-
+	
 	/**
 	 * Check if clue is solved
 	 * 
@@ -1492,9 +1523,9 @@ class CrosswordGrid extends JPanel {
 			checkClueSolved(cell.getAcrossClue(), ACROSS, username);
 		if (cell.hasDown())
 			checkClueSolved(cell.getDownClue(), DOWN, username);
-
+		
 	}
-
+	
 	/**
 	 * Check if clue is solved
 	 * 
@@ -1530,17 +1561,17 @@ class CrosswordGrid extends JPanel {
 		if (solved && !clue.isSolved()) {// if solved and clue wasn't already solved
 			clue.setSolved(username);
 			if (mainFrame.supportOn())
-				mainFrame.appendLog(Tools.getTime() + "\n\t" + clue.number + " " + direction + " solved by " + username
-						+ "\n");
+				mainFrame.appendLog(Tools.getTime() + "\n\t" + clue.number + " " + direction
+						+ " solved by " + username + "\n");
 		} else if (!solved && clue.isSolved()) { // not solved and clue was solved
 			clue.setUnsolved();
 		}
 		if (solved && checkPuzzleSolved()) {// solved and whole puzzle solved
-			mainFrame.appendLog(Tools.getTime() + "\n\tCrossword \"" + mainFrame.getCurrentCrossword()
-					+ "\" solved by " + username + "\n");
+			mainFrame.appendLog(Tools.getTime() + "\n\tCrossword \""
+					+ mainFrame.getCurrentCrossword() + "\" solved by " + username + "\n");
 		}
 	}
-
+	
 	/**
 	 * Check if the whole {@link Crossword} has been solved
 	 * 
@@ -1555,36 +1586,48 @@ class CrosswordGrid extends JPanel {
 				solved = solved && acrossIterator.next().isSolved();
 			if (downIterator.hasNext())
 				solved = solved && downIterator.next().isSolved();
-			if (!solved)
+			if (!solved) // crossword not solved, stop checking
 				return false;
 		}
 		return true;
 	}
-
+	
+	/**
+	 * Move selected cell in direction passed
+	 * 
+	 * @param direction
+	 *            - direction to move selected cell
+	 */
 	private void move(int direction) {
 		int xMove = 0, yMove = 0;
 		switch (direction) {
-		case UP:
-			yMove = -1;
-			break;
-		case DOWN:
-			yMove = 1;
-			break;
-		case LEFT:
-			xMove = -1;
-			break;
-		case RIGHT:
-			xMove = 1;
-			break;
-		case NONE:
-			repaint();
-			return;
+			case UP:
+				yMove = -1;
+				break;
+			case DOWN:
+				yMove = 1;
+				break;
+			case LEFT:
+				xMove = -1;
+				break;
+			case RIGHT:
+				xMove = 1;
+				break;
+			case NONE:
+				repaint();
+				return;
 		}
 		int x = cellToHighlight.x + xMove;
 		int y = cellToHighlight.y + yMove;
 		highlightCell(x, y);
 	}
-
+	
+	/**
+	 * Set 2D Cell array to puzzle, for when new Crossword is loaded
+	 * 
+	 * @param puzzle
+	 *            - 2D Cell array to set
+	 */
 	public void setPuzzle(Cell[][] puzzle) {
 		this.puzzle = puzzle;
 		repaint();
@@ -1598,6 +1641,11 @@ class CrosswordGrid extends JPanel {
  * 
  */
 class Tools {
+	/**
+	 * Returns date and time in format "dd/MM/yyyy HH:mm" as String
+	 * 
+	 * @return string with date and time
+	 */
 	public static String getTime() {
 		Date now = new Date();
 		SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm");
@@ -1605,32 +1653,105 @@ class Tools {
 	}
 }
 
-class CrosswordIO {
+// @formatter:off
+/**
+ * All my I/O is done with XML format. My XML format for crosswords:
+ * 
+ * <crossword title="Guardian 13,019" size="13">
+ * 		<across>
+ * 			<clueEntry number="1" x="1" y="0" solved="true">
+ * 				<solvedBy>gdfgdf</solvedBy>
+ * 				<solvedAt>11-May-2012 14:10:44</solvedAt>
+ * 				<clue>Showy</clue>
+ * 				<answer>OSTENTATIOUS</answer>
+ * 			</clueEntry>
+ * 		</across>
+ * 		<down>
+ * 			<clueEntry number="2" x="2" y="0" solved="false">
+ * 				<clue>One way or another</clue>
+ * 				<answer>SOMEHOW</answer>
+ * 			</clueEntry>
+ * 		</down>
+ * </crossword>
+ * 
+ * You can see that if solved is false, there are no solvedBy or solvedAt elements
+ * 
+ * @author hja1g11
+ * 
+ */
+// @formatter:on
 
-	// return null if failed
+class CrosswordIO {
+	/**
+	 * Reads in a Crossword from file passed with solved state of clues
+	 * 
+	 * @param file
+	 *            - input file
+	 * @return Crossword created from file data. null if failed for any reason
+	 */
 	public static Crossword readPuzzle(File file) {
 		return inputPuzzle(file, true);
 	}
-
-	// return null if failed
+	
+	/**
+	 * Reads in a Crossword from file passed without solved state of clues
+	 * 
+	 * @param file
+	 *            - input file
+	 * @return Crossword created from file data. null if failed for any reason
+	 */
 	public static Crossword importPuzzle(File file) {
 		return inputPuzzle(file, false);
 	}
-
+	
+	/**
+	 * Reads in a Crossword from file passed.
+	 * 
+	 * @param file
+	 *            - input file
+	 * @param readState
+	 *            - whether to read in solved state of clues
+	 * @return Crossword created from file data. null if failed for any reason
+	 */
 	private static Crossword inputPuzzle(File file, boolean readState) {
 		CrosswordSAXParser parser = new CrosswordSAXParser(file, readState);
 		return parser.getCrossword();
 	}
-
-	// save puzzle with state
+	
+	/**
+	 * Save puzzle to file with solved state of clues
+	 * 
+	 * @param file
+	 *            - output file
+	 * @param crossword
+	 *            - crossword to output
+	 */
 	public static void writePuzzle(File file, Crossword crossword) {
 		ouputPuzzle(file, crossword, true);
 	}
-
+	
+	/**
+	 * Save puzzle to file without solved state of clues
+	 * 
+	 * @param file
+	 *            - output file
+	 * @param crossword
+	 *            - crossword to output
+	 */
 	public static void exportPuzzle(File file, Crossword crossword) {
 		ouputPuzzle(file, crossword, false);
 	}
-
+	
+	/**
+	 * Save puzzle to file
+	 * 
+	 * @param file
+	 *            - output file
+	 * @param crossword
+	 *            - crossword to output
+	 * @param storeState
+	 *            - whether to store the solved state of clues
+	 */
 	private static void ouputPuzzle(File file, Crossword crossword, boolean storeState) {
 		OutputStream outputStream = null;
 		try {
@@ -1639,10 +1760,10 @@ class CrosswordIO {
 			e.printStackTrace();
 		}
 		XMLStreamWriter writer = null;
-
+		
 		try {
-			writer = XMLOutputFactory.newInstance()
-					.createXMLStreamWriter(new OutputStreamWriter(outputStream, "utf-8"));
+			writer = XMLOutputFactory.newInstance().createXMLStreamWriter(
+					new OutputStreamWriter(outputStream, "utf-8"));
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
 		} catch (XMLStreamException e) {
@@ -1650,79 +1771,105 @@ class CrosswordIO {
 		} catch (FactoryConfigurationError e) {
 			e.printStackTrace();
 		}
-
+		
 		try {
 			writer.writeStartDocument();
 			writer.writeStartElement("crossword");
-
+			
 			writer.writeAttribute("title", crossword.title);
 			writer.writeAttribute("size", Integer.toString(crossword.size));
-
+			
 			writer.writeStartElement("across");
 			for (Clue clue : crossword.acrossClues) {
 				writeClue(writer, clue, storeState);
 			}
 			writer.writeEndElement();
-
+			
 			writer.writeStartElement("down");
 			for (Clue clue : crossword.downClues) {
 				writeClue(writer, clue, storeState);
 			}
 			writer.writeEndElement();
-
+			
 			writer.writeEndElement();
 			writer.writeEndDocument();
-
+			
 			writer.flush();
 			writer.close();
 		} catch (XMLStreamException e) {
 			e.printStackTrace();
 		}
 	}
-
-	private static void writeClue(XMLStreamWriter writer, Clue clue, boolean storeState) throws XMLStreamException {
+	
+	/**
+	 * Write each clue
+	 * 
+	 * @param writer
+	 *            - XMLStreamWriter to write to
+	 * @param file
+	 *            - output file
+	 * @param clue
+	 *            - clue to output
+	 * @param storeState
+	 *            - whether to store the solved state of clues
+	 * @throws XMLStreamException
+	 *             - if something goes awry
+	 */
+	private static void writeClue(XMLStreamWriter writer, Clue clue, boolean storeState)
+			throws XMLStreamException {
 		writer.writeStartElement("clueEntry");
-
+		
 		writer.writeAttribute("number", Integer.toString(clue.number));
 		writer.writeAttribute("x", Integer.toString(clue.x));
 		writer.writeAttribute("y", Integer.toString(clue.y));
-
+		
 		if (storeState) {
 			writer.writeAttribute("solved", Boolean.toString(clue.isSolved()));
 			if (clue.isSolved()) {
 				writer.writeStartElement("solvedBy");
 				writer.writeCharacters(clue.solvedBy);
 				writer.writeEndElement();
-
+				
 				writer.writeStartElement("solvedAt");
-
+				
 				DateFormat dt = DateFormat.getDateTimeInstance();
 				writer.writeCharacters(dt.format(clue.solvedAt));
 				writer.writeEndElement();
 			}
 		}
-
+		
 		writer.writeStartElement("clue");
 		writer.writeCharacters(clue.clue);
 		writer.writeEndElement();
-
+		
 		writer.writeStartElement("answer");
 		writer.writeCharacters(clue.answer);
 		writer.writeEndElement();
-
+		
 		writer.writeEndElement();
 	}
-
-	public static File getFile(final String[] extensionsAllowed, boolean read) {
+	
+	/**
+	 * Get a file with an extension the matches those passed in.
+	 * 
+	 * @param component
+	 *            - parent component of the JFileChoose
+	 * @param extensionsAllowed
+	 *            - extensions allowed for files
+	 * @param read
+	 *            - whether reading or writing to show correct JFileChooser
+	 * @return File
+	 */
+	public static File getFile(Component component, final String[] extensionsAllowed, boolean read) {
 		final JFileChooser fc = new JFileChooser();
 		fc.setFileFilter(new FileFilter() {
-
+			
 			// Accept all directories and all allowed extensions files.
 			public boolean accept(File f) {
 				if (f.isDirectory()) {
 					return true;
 				}
-
+				
 				// get extension
 				String fileName = f.getName();
 				int i = fileName.lastIndexOf('.');
@@ -1730,10 +1877,10 @@ class CrosswordIO {
 				if (i > 0 && i < fileName.length() - 1) {
 					extension = fileName.substring(i + 1).toLowerCase();
 				}
-
+				
 				return checkExtension(extension, extensionsAllowed);
 			}
-
+			
 			// The description of this filter
 			public String getDescription() {
 				return Arrays.toString(extensionsAllowed);
@@ -1742,9 +1889,9 @@ class CrosswordIO {
 		fc.setAcceptAllFileFilterUsed(false);
 		int returnVal;
 		if (read)
-			returnVal = fc.showOpenDialog(null);
+			returnVal = fc.showOpenDialog(component);
 		else
-			returnVal = fc.showSaveDialog(null);
+			returnVal = fc.showSaveDialog(component);
 		if (returnVal == JFileChooser.APPROVE_OPTION) {
 			File file = fc.getSelectedFile();
 			String fileName = file.getName();
@@ -1758,15 +1905,16 @@ class CrosswordIO {
 				return file;
 			} else {
 				Object[] options = { "Try Again", "Cancel" };
-				int n = JOptionPane.showOptionDialog(null, "Invalid extension", "Error",
-						JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.ERROR_MESSAGE, null, options, options[1]);
+				int n = JOptionPane.showOptionDialog(component, "Invalid extension", "Error",
+						JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.ERROR_MESSAGE, null, options,
+						options[1]);
 				if (n == 0) // Try again
-					return getFile(extensionsAllowed, read);
+					return getFile(component, extensionsAllowed, read);
 			}
 		}
 		return null;
 	}
-
+	
 	private static boolean checkExtension(String extension, String[] extensionAllowed) {
 		if (extension != null) {
 			boolean allowed = false;
@@ -1781,25 +1929,28 @@ class CrosswordIO {
 }
 
 /*
- * I used a SAX parser for reading the XML file because they are more efficient than other methods and scale
- * well for big files. For the purpose of this assignment this is was most likely not necessary and could have
- * been done in a much neater way using a DOM parser or another alternative, but I already had the code from a
- * previous project of mine so I decided to use it and adapt it.
+ * I used a SAX parser for reading the XML file because they are more efficient than other methods
+ * and scale well for big files. For the purpose of this assignment this is was most likely not
+ * necessary and could have been done in a much neater way using a DOM parser or another
+ * alternative, but I already had the code from a previous project of mine so I decided to use it
+ * and adapt it.
  */
 class CrosswordSAXParser extends DefaultHandler {
-
+	
 	private Crossword crossword;
-
+	
 	private ArrayList<Clue> acrossClues, downClues;
 	private File xmlFile;
 	private String tempVal;
 	private boolean across, down;
-
+	
+	// To store temp vals while parsing rest
 	private Clue tempClue;
-	private String tempClueStr, tempAnswerStr, tempNumStr, tempXStr, tempYStr, tempSolvedByStr, tempSolvedAtStr;
+	private String tempClueStr, tempAnswerStr, tempNumStr, tempXStr, tempYStr, tempSolvedByStr,
+			tempSolvedAtStr;
 	private boolean tempSolved;
 	private boolean readState;
-
+	
 	public CrosswordSAXParser(File xmlFile, boolean readState) {
 		this.xmlFile = xmlFile;
 		acrossClues = new ArrayList<Clue>();
@@ -1807,15 +1958,15 @@ class CrosswordSAXParser extends DefaultHandler {
 		this.readState = readState;
 		parseDocument();
 	}
-
+	
 	private void parseDocument() {
-
+		
 		// get a factory
 		SAXParserFactory spf = SAXParserFactory.newInstance();
 		try {
 			// get a new instance of parser
 			SAXParser sp = spf.newSAXParser();
-
+			
 			// parse the file
 			sp.parse(xmlFile, this);
 		} catch (Exception e) { // just set to null if exception thrown
@@ -1823,13 +1974,14 @@ class CrosswordSAXParser extends DefaultHandler {
 			e.printStackTrace();
 		}
 	}
-
+	
 	public Crossword getCrossword() {
 		return crossword;
 	}
-
+	
 	// Event Handlers
-	public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+	public void startElement(String uri, String localName, String qName, Attributes attributes)
+			throws SAXException {
 		// reset
 		tempVal = "";
 		if (qName.equalsIgnoreCase("crossword")) {
@@ -1849,15 +2001,15 @@ class CrosswordSAXParser extends DefaultHandler {
 					tempSolved = Boolean.parseBoolean(attributes.getValue("solved"));
 			}
 		}
-
+		
 	}
-
+	
 	public void characters(char[] ch, int start, int length) throws SAXException {
 		tempVal = new String(ch, start, length);
 	}
-
+	
 	public void endElement(String uri, String localName, String qName) throws SAXException {
-
+		
 		if (qName.equalsIgnoreCase("clue")) {
 			tempClueStr = tempVal;
 		} else if (qName.equalsIgnoreCase("across")) {
@@ -1871,11 +2023,11 @@ class CrosswordSAXParser extends DefaultHandler {
 		} else if (qName.equalsIgnoreCase("solvedAt")) {
 			tempSolvedAtStr = tempVal;
 		} else if (qName.equalsIgnoreCase("clueEntry")) {
-
+			
 			int num = Integer.parseInt(tempNumStr);
 			int x = Integer.parseInt(tempXStr);
 			int y = Integer.parseInt(tempYStr);
-
+			
 			tempClue = new Clue(num, x, y, tempClueStr, tempAnswerStr);
 			if (tempSolved) {
 				DateFormat dt = DateFormat.getDateTimeInstance();
@@ -1886,12 +2038,12 @@ class CrosswordSAXParser extends DefaultHandler {
 				}
 			}
 			tempSolved = false;
-
+			
 			if (across)
 				acrossClues.add(tempClue);
 			else if (down)
 				downClues.add(tempClue);
-
+			
 		}
 	}
 }
