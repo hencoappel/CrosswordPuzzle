@@ -1,3 +1,4 @@
+package crossword;
 /**
  * Class to hold data about a specific {@link Cell} in my grid
  * 
