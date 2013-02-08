@@ -1,4 +1,4 @@
-package crossword;
+package crossword.io;
 import java.io.File;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -10,6 +10,9 @@ import javax.xml.parsers.SAXParserFactory;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
+
+import crossword.Clue;
+import crossword.Crossword;
 
 /**
  * I used a SAX parser for reading the XML file because they are more efficient

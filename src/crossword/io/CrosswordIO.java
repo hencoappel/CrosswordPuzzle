@@ -1,4 +1,5 @@
-package crossword;
+package crossword.io;
+
 import java.awt.Component;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -16,6 +17,9 @@ import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
+
+import crossword.Clue;
+import crossword.Crossword;
 
 /**
  * All my I/O is done with XML format. My XML format for crosswords:
@@ -129,17 +133,17 @@ public class CrosswordIO {
 			writer.writeStartDocument();
 			writer.writeStartElement("crossword");
 
-			writer.writeAttribute("title", crossword.title);
-			writer.writeAttribute("size", Integer.toString(crossword.size));
+			writer.writeAttribute("title", crossword.getTitle());
+			writer.writeAttribute("size", Integer.toString(crossword.getSize()));
 
 			writer.writeStartElement("across");
-			for (Clue clue : crossword.acrossClues) {
+			for (Clue clue : crossword.getAcrossClues()) {
 				writeClue(writer, clue, storeState);
 			}
 			writer.writeEndElement();
 
 			writer.writeStartElement("down");
-			for (Clue clue : crossword.downClues) {
+			for (Clue clue : crossword.getDownClues()) {
 				writeClue(writer, clue, storeState);
 			}
 			writer.writeEndElement();
@@ -172,31 +176,31 @@ public class CrosswordIO {
 			throws XMLStreamException {
 		writer.writeStartElement("clueEntry");
 
-		writer.writeAttribute("number", Integer.toString(clue.number));
-		writer.writeAttribute("x", Integer.toString(clue.x));
-		writer.writeAttribute("y", Integer.toString(clue.y));
+		writer.writeAttribute("number", Integer.toString(clue.getNumber()));
+		writer.writeAttribute("x", Integer.toString(clue.getX()));
+		writer.writeAttribute("y", Integer.toString(clue.getY()));
 
 		if (storeState) {
 			writer.writeAttribute("solved", Boolean.toString(clue.isSolved()));
 			if (clue.isSolved()) {
 				writer.writeStartElement("solvedBy");
-				writer.writeCharacters(clue.solvedBy);
+				writer.writeCharacters(clue.getSolvedBy());
 				writer.writeEndElement();
 
 				writer.writeStartElement("solvedAt");
 
 				DateFormat dt = DateFormat.getDateTimeInstance();
-				writer.writeCharacters(dt.format(clue.solvedAt));
+				writer.writeCharacters(dt.format(clue.getSolvedAt()));
 				writer.writeEndElement();
 			}
 		}
 
 		writer.writeStartElement("clue");
-		writer.writeCharacters(clue.clue);
+		writer.writeCharacters(clue.getClue());
 		writer.writeEndElement();
 
 		writer.writeStartElement("answer");
-		writer.writeCharacters(clue.answer);
+		writer.writeCharacters(clue.getAnswer());
 		writer.writeEndElement();
 
 		writer.writeEndElement();

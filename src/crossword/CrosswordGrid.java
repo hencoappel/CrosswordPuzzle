@@ -1,4 +1,5 @@
 package crossword;
+
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -169,8 +170,8 @@ class CrosswordGrid extends JPanel {
 			if (cellToHighlight.equals(new Point(x, y))) // cell clicked on
 				g.setColor(CELL_HIGHLIGHT_COLOR);
 			// clue clicked on
-			else if ((cell.hasAcross() && cell.getAcrossClue().number == clueToHighlight && highlightDirection == ACROSS)
-					|| (cell.hasDown() && cell.getDownClue().number == clueToHighlight && highlightDirection == DOWN))
+			else if ((cell.hasAcross() && cell.getAcrossClue().getNumber() == clueToHighlight && highlightDirection == ACROSS)
+					|| (cell.hasDown() && cell.getDownClue().getNumber() == clueToHighlight && highlightDirection == DOWN))
 				g.setColor(CLUE_HIGHLIGHT_COLOR);
 			// other cell
 			else
@@ -247,7 +248,7 @@ class CrosswordGrid extends JPanel {
 					// if moving down already highlighted clue, continue to
 					// highlight down clue
 					// and not across
-					if (cell.hasDown() && cell.getDownClue().number == clueToHighlight) {
+					if (cell.hasDown() && cell.getDownClue().getNumber() == clueToHighlight) {
 						highlightClue(cell.getDownClue(), DOWN);
 						this.cellToHighlight = cellHighlight;
 					} else {
@@ -288,7 +289,7 @@ class CrosswordGrid extends JPanel {
 		if (direction == NONE) {
 			clueToHighlight = 0;
 		} else {
-			clueToHighlight = clue.number;
+			clueToHighlight = clue.getNumber();
 		}
 		selectClueInList(clue, direction); // highlight in list
 		requestFocus();
@@ -471,15 +472,15 @@ class CrosswordGrid extends JPanel {
 		else
 			direction = "down";
 		if (direct == ACROSS) { // check across
-			int y = clue.y;
-			for (int x = clue.x; x < clue.x + clue.length(); x++) {
+			int y = clue.getY();
+			for (int x = clue.getX(); x < clue.getX() + clue.length(); x++) {
 				solved = solved && puzzle[x][y].getC().equals(puzzle[x][y].getAnswer());
 				if (!solved) // clue not solved, stop checking
 					break;
 			}
 		} else { // check down
-			int x = clue.x;
-			for (int y = clue.y; y < clue.y + clue.length(); y++) {
+			int x = clue.getX();
+			for (int y = clue.getY(); y < clue.getY() + clue.length(); y++) {
 				solved = solved && puzzle[x][y].getC().equals(puzzle[x][y].getAnswer());
 				if (!solved) // clue not solved, stop checking
 					break;
@@ -489,7 +490,7 @@ class CrosswordGrid extends JPanel {
 											// solved
 			clue.setSolved(username);
 			if (mainFrame.supportOn())
-				mainFrame.appendLog(Tools.getTime() + "\n\t" + clue.number + " " + direction
+				mainFrame.appendLog(Tools.getTime() + "\n\t" + clue.getNumber() + " " + direction
 						+ " solved by " + username + "\n");
 		} else if (!solved && clue.isSolved()) { // not solved and clue was
 													// solved
@@ -508,8 +509,8 @@ class CrosswordGrid extends JPanel {
 	 */
 	private boolean checkPuzzleSolved() {
 		boolean solved = true;
-		Iterator<Clue> acrossIterator = mainFrame.getCurrentCrossword().acrossClues.iterator();
-		Iterator<Clue> downIterator = mainFrame.getCurrentCrossword().downClues.iterator();
+		Iterator<Clue> acrossIterator = mainFrame.getCurrentCrossword().getAcrossClues().iterator();
+		Iterator<Clue> downIterator = mainFrame.getCurrentCrossword().getDownClues().iterator();
 		while (acrossIterator.hasNext() || downIterator.hasNext()) {
 			if (acrossIterator.hasNext())
 				solved = solved && acrossIterator.next().isSolved();

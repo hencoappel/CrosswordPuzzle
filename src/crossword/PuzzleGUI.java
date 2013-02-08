@@ -1,4 +1,5 @@
 package crossword;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -46,6 +47,9 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+
+import crossword.io.CrosswordIO;
+import crossword.network.CrosswordServer;
 
 /*
  * I have implemented network play and included my server file with source code for you to use.
@@ -119,8 +123,9 @@ public class PuzzleGUI extends JFrame {
 				if (!source.isSelectionEmpty()) {
 					// highlight clue in grid when clicked on in JList
 					int selected = source.getSelectedIndex();
-					Clue clue = currentCrossword.acrossClues.get(selected);
-					grid.onlyHighlightClue(clue.x, clue.y, clue.number, CrosswordGrid.ACROSS);
+					Clue clue = currentCrossword.getAcrossClues().get(selected);
+					grid.onlyHighlightClue(clue.getX(), clue.getY(), clue.getNumber(),
+							CrosswordGrid.ACROSS);
 				}
 			}
 		});
@@ -135,8 +140,9 @@ public class PuzzleGUI extends JFrame {
 				if (!((JList) e.getSource()).isSelectionEmpty()) {
 					// highlight clue in grid when clicked on in JList
 					int selected = ((JList) e.getSource()).getSelectedIndex();
-					Clue clue = currentCrossword.downClues.get(selected);
-					grid.onlyHighlightClue(clue.x, clue.y, clue.number, CrosswordGrid.DOWN);
+					Clue clue = currentCrossword.getDownClues().get(selected);
+					grid.onlyHighlightClue(clue.getX(), clue.getY(), clue.getNumber(),
+							CrosswordGrid.DOWN);
 				}
 			}
 		});
@@ -361,7 +367,7 @@ public class PuzzleGUI extends JFrame {
 				boolean isSelected, boolean cellHasFocus) {
 			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 			// set background to green if solve support is on and clue is solved
-			if (solvedSupport && ((Clue) value).solved)
+			if (solvedSupport && ((Clue) value).isSolved())
 				setBackground(new Color(151, 206, 139));
 			if (isSelected)
 				setBorder(BorderFactory.createLineBorder(new Color(99, 130, 191)));
@@ -380,16 +386,16 @@ public class PuzzleGUI extends JFrame {
 	private void loadCrossword(Crossword crossword) {
 		currentCrossword.resetCrossword(); // reset data so next load is clear
 		currentCrossword = crossword;
-		crosswordTitle.setText(crossword.title);
-		puzzle = new Cell[currentCrossword.size][currentCrossword.size];
+		crosswordTitle.setText(crossword.getTitle());
+		puzzle = new Cell[currentCrossword.getSize()][currentCrossword.getSize()];
 
-		acrossJList.setListData(currentCrossword.acrossClues.toArray());
-		downJList.setListData(currentCrossword.downClues.toArray());
+		acrossJList.setListData(currentCrossword.getAcrossClues().toArray());
+		downJList.setListData(currentCrossword.getDownClues().toArray());
 
 		// load clues
-		for (Clue clue : currentCrossword.acrossClues)
+		for (Clue clue : currentCrossword.getAcrossClues())
 			loadClue(clue, true);
-		for (Clue clue : currentCrossword.downClues)
+		for (Clue clue : currentCrossword.getDownClues())
 			loadClue(clue, false);
 		if (grid != null) {// not first time
 			grid.setPuzzle(puzzle);
@@ -405,26 +411,26 @@ public class PuzzleGUI extends JFrame {
 	 *            - true if across {@link Clue}, false if down {@link Clue}
 	 */
 	private void loadClue(Clue clue, boolean across) {
-		char[] answer = clue.answer.replaceAll("(-| )", "").toUpperCase().toCharArray();
+		char[] answer = clue.getAnswer().replaceAll("(-| )", "").toUpperCase().toCharArray();
 		// set first char separately
 		char character = ' '; // this is to allow loading of state of Crossword
 		if (clue.isSolved())
 			character = answer[0];
-		if (puzzle[clue.x][clue.y] == null)
-			puzzle[clue.x][clue.y] = new Cell(character, answer[0], null, null);
+		if (puzzle[clue.getX()][clue.getY()] == null)
+			puzzle[clue.getX()][clue.getY()] = new Cell(character, answer[0], null, null);
 
 		if (across) {
-			puzzle[clue.x][clue.y].setAcrossClue(clue);
+			puzzle[clue.getX()][clue.getY()].setAcrossClue(clue);
 			// only if already empty, set to character
-			if (puzzle[clue.x][clue.y].getC().equals(" ") && clue.isSolved())
-				puzzle[clue.x][clue.y].setC(Character.toString(character));
+			if (puzzle[clue.getX()][clue.getY()].getC().equals(" ") && clue.isSolved())
+				puzzle[clue.getX()][clue.getY()].setC(Character.toString(character));
 		} else {
-			puzzle[clue.x][clue.y].setDownClue(clue);
+			puzzle[clue.getX()][clue.getY()].setDownClue(clue);
 			// only if already empty, set to character
-			if (puzzle[clue.x][clue.y].getC().equals(" ") && clue.isSolved())
-				puzzle[clue.x][clue.y].setC(Character.toString(character));
+			if (puzzle[clue.getX()][clue.getY()].getC().equals(" ") && clue.isSolved())
+				puzzle[clue.getX()][clue.getY()].setC(Character.toString(character));
 		}
-		puzzle[clue.x][clue.y].setClueNum(Integer.toString(clue.number));
+		puzzle[clue.getX()][clue.getY()].setClueNum(Integer.toString(clue.getNumber()));
 		// set rest of chars
 		for (int i = 1; i < answer.length; i++) {
 			character = ' ';
@@ -433,23 +439,25 @@ public class PuzzleGUI extends JFrame {
 			// check if it needs to go across or down
 			// needed for cells which are for both across and down clues
 			if (across) {
-				if (puzzle[clue.x + i][clue.y] == null)
-					puzzle[clue.x + i][clue.y] = new Cell(character, answer[i], clue, null);
+				if (puzzle[clue.getX() + i][clue.getY()] == null)
+					puzzle[clue.getX() + i][clue.getY()] = new Cell(character, answer[i], clue,
+							null);
 				else {
-					puzzle[clue.x + i][clue.y].setAcrossClue(clue);
+					puzzle[clue.getX() + i][clue.getY()].setAcrossClue(clue);
 					// only if already empty, set to character
-					if (puzzle[clue.x][clue.y].getC().equals(" ") && clue.isSolved())
-						puzzle[clue.x][clue.y].setC(Character.toString(character));
+					if (puzzle[clue.getX()][clue.getY()].getC().equals(" ") && clue.isSolved())
+						puzzle[clue.getX()][clue.getY()].setC(Character.toString(character));
 				}
 			} else {
 				// needed for cells which are for both across and down clues
-				if (puzzle[clue.x][clue.y + i] == null)
-					puzzle[clue.x][clue.y + i] = new Cell(character, answer[i], null, clue);
+				if (puzzle[clue.getX()][clue.getY() + i] == null)
+					puzzle[clue.getX()][clue.getY() + i] = new Cell(character, answer[i], null,
+							clue);
 				else {
-					puzzle[clue.x][clue.y + i].setDownClue(clue);
+					puzzle[clue.getX()][clue.getY() + i].setDownClue(clue);
 					// only if already empty,set to a
-					if (puzzle[clue.x][clue.y].getC().equals(" ") && clue.isSolved())
-						puzzle[clue.x][clue.y].setC(Character.toString(character));
+					if (puzzle[clue.getX()][clue.getY()].getC().equals(" ") && clue.isSolved())
+						puzzle[clue.getX()][clue.getY()].setC(Character.toString(character));
 				}
 			}
 		}
