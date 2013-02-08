@@ -49,7 +49,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import crossword.io.CrosswordIO;
-import crossword.network.CrosswordServer;
+import crossword.network.sockets.CrosswordServer;
 
 /*
  * I have implemented network play and included my server file with source code for you to use.

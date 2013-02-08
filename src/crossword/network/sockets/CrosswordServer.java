@@ -1,4 +1,4 @@
-package crossword.network;
+package crossword.network.sockets;
 
 import java.io.BufferedReader;
 import java.io.IOException;
