@@ -12,4 +12,8 @@ public interface NetworkInterface {
 
 	public List<Server> getServers();
 
+	public void turnServerOn();
+
+	public void turnServerOff();
+
 }
