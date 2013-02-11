@@ -75,6 +75,7 @@ public class PuzzleGUI extends JFrame {
 		// execute on EDT
 		SwingUtilities.invokeLater(new Runnable() {
 
+			@Override
 			public void run() {
 				new PuzzleGUI();
 			}
@@ -298,6 +299,7 @@ public class PuzzleGUI extends JFrame {
 	 */
 	public class ClueRenderer extends DefaultListCellRenderer {
 
+		@Override
 		public Component getListCellRendererComponent(JList list, Object value, int index,
 				boolean isSelected, boolean cellHasFocus) {
 			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
@@ -747,6 +749,7 @@ public class PuzzleGUI extends JFrame {
 	 */
 	class InStream implements Runnable {
 
+		@Override
 		public void run() {
 			String line = "";
 			try {
@@ -757,8 +760,11 @@ public class PuzzleGUI extends JFrame {
 						int y = Integer.parseInt(vals[1]);
 						char c = vals[2].charAt(0);
 						String username = vals[3];
-						grid.setCell(x, y, c, username, false, false); // set
-																		// cell
+						try {
+							grid.setCell(x, y, c, username, false, false);
+						} catch (Exception e) {
+							// ignore problems...
+						}
 					} else { // output chat text to log
 						logArea.append(Tools.getTime() + "\n\t" + vals[1] + " says: " + vals[2]
 								+ "\n");
